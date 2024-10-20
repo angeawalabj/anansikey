@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+.npm/
+
+# Build outputs
+dist/
+out/
+*.vsix
+
+# Environment files — NEVER commit real credentials
+.env
+.env.local
+.env.*.local
+.env.production
+.env.staging
+!.env.example
+!.env.test
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test coverage
+coverage/
+
+# Temporary
+tmp/
+temp/
+providers/   ← scaffold output (local only)
+./scripts/git-init.sh
