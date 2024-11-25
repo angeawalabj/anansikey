@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <!-- Main gradient: electric blue → cyan -->
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#3d8ef0"/>
+      <stop offset="100%" stop-color="#00d4ff"/>
+    </linearGradient>
+    <!-- Glow -->
+    <filter id="glow" x="-25%" y="-25%" width="150%" height="150%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <!-- Outer glow for hex -->
+    <filter id="hexglow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feColorMatrix in="blur" type="matrix"
+        values="0 0 0 0 0.24 0 0 0 0 0.56 0 0 0 0 0.94 0 0 0 0.5 0"/>
+    </filter>
+    <clipPath id="hexclip">
+      <!-- Hexagon clip for key shape -->
+      <polygon points="64,10 108,35 108,93 64,118 20,93 20,35"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect width="128" height="128" fill="#060d1a" rx="18"/>
+
+  <!-- Spider legs — 2 per vertex, subtle -->
+  <g opacity="0.4" stroke="url(#g)" stroke-width="1.2"
+     stroke-linecap="round" fill="none">
+    <!-- top -->
+    <line x1="64" y1="10" x2="50" y2="2"/>
+    <line x1="64" y1="10" x2="78" y2="2"/>
+    <!-- top-right -->
+    <line x1="108" y1="35" x2="121" y2="25"/>
+    <line x1="108" y1="35" x2="124" y2="42"/>
+    <!-- bottom-right -->
+    <line x1="108" y1="93" x2="124" y2="86"/>
+    <line x1="108" y1="93" x2="120" y2="104"/>
+    <!-- bottom -->
+    <line x1="64" y1="118" x2="78" y2="126"/>
+    <line x1="64" y1="118" x2="50" y2="126"/>
+    <!-- bottom-left -->
+    <line x1="20" y1="93" x2="8"  y2="104"/>
+    <line x1="20" y1="93" x2="4"  y2="86"/>
+    <!-- top-left -->
+    <line x1="20" y1="35" x2="4"  y2="42"/>
+    <line x1="20" y1="35" x2="7"  y2="25"/>
+  </g>
+
+  <!-- Hex outer glow -->
+  <polygon points="64,10 108,35 108,93 64,118 20,93 20,35"
+    fill="none" stroke="#3d8ef0" stroke-width="14"
+    opacity="0.18" filter="url(#hexglow)"/>
+
+  <!-- Hex body -->
+  <polygon points="64,10 108,35 108,93 64,118 20,93 20,35"
+    fill="#080f1e"/>
+
+  <!-- Hex border -->
+  <polygon points="64,10 108,35 108,93 64,118 20,93 20,35"
+    fill="none" stroke="url(#g)" stroke-width="2.5"
+    filter="url(#glow)"/>
+
+  <!-- Inner hex ring (precision detail — hidden at 16px, visible at 32px+) -->
+  <polygon points="64,20 100,41 100,87 64,108 28,87 28,41"
+    fill="none" stroke="#1a3355" stroke-width="1" opacity="0.5"/>
+
+  <!-- KEY SHAPE — clipped inside hex -->
+  <g clip-path="url(#hexclip)" filter="url(#glow)">
+    <!-- Key head: outer ring -->
+    <circle cx="64" cy="56" r="18" fill="none"
+      stroke="url(#g)" stroke-width="6"/>
+    <!-- Key head: inner hole -->
+    <circle cx="64" cy="56" r="7" fill="#080f1e"/>
+
+    <!-- Key shaft -->
+    <rect x="60" y="73" width="8" height="28" rx="4"
+      fill="url(#g)"/>
+
+    <!-- Key teeth — right side -->
+    <rect x="68" y="83" width="10" height="6" rx="2"
+      fill="url(#g)"/>
+    <rect x="68" y="93" width="7"  height="5" rx="2"
+      fill="url(#g)"/>
+  </g>
+
+</svg>

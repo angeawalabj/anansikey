@@ -1,0 +1,135 @@
+{
+  "name": "anansikey",
+  "displayName": "Anansikey — API Key Validator",
+  "description": "Validate API credentials directly in your editor. Zero-Knowledge: keys never leave your machine.",
+  "version": "2.0.0",
+  "publisher": "anansikey",
+  "icon": "media/logo.svg",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anansikey/anansikey"
+  },
+  "bugs": {
+    "url": "https://github.com/anansikey/anansikey/issues"
+  },
+  "homepage": "https://anansikey.dev",
+  "keywords": [
+    "api", "api-key", "credentials", "validation", "security",
+    "dotenv", "env", "stripe", "openai", "github", "devops", "devsecops"
+  ],
+  "categories": ["Linters", "Other"],
+  "engines": { "vscode": "^1.80.0" },
+  "main": "./src/extension.js",
+
+  "activationEvents": [
+    "onLanguage:dotenv",
+    "workspaceContains:**/.env*"
+  ],
+
+  "contributes": {
+    "commands": [
+      {
+        "command": "anansikey.validateFile",
+        "title": "Anansikey: Validate .env File",
+        "icon": "$(shield)"
+      },
+      {
+        "command": "anansikey.validateAll",
+        "title": "Anansikey: Validate All .env Files in Workspace"
+      },
+      {
+        "command": "anansikey.validateSelection",
+        "title": "Anansikey: Validate Selected Key"
+      },
+      {
+        "command": "anansikey.clearDecorations",
+        "title": "Anansikey: Clear Decorations"
+      }
+    ],
+
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "anansikey.validateFile",
+          "when": "resourceFilename =~ /\\.env/",
+          "group": "security"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "anansikey.validateFile",
+          "when": "resourceFilename =~ /\\.env/",
+          "group": "security@1"
+        },
+        {
+          "command": "anansikey.validateSelection",
+          "when": "editorHasSelection",
+          "group": "security@2"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "anansikey.validateFile",
+          "when": "resourceFilename =~ /\\.env/",
+          "group": "navigation"
+        }
+      ]
+    },
+
+    "configuration": {
+      "title": "Anansikey",
+      "properties": {
+        "anansikey.autoValidateOnSave": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically validate .env files when saved."
+        },
+        "anansikey.showInlineDecorations": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show ✓/✗/⚠ icons next to credential lines in the editor."
+        },
+        "anansikey.scanDelayMs": {
+          "type": "number",
+          "default": 500,
+          "minimum": 100,
+          "maximum": 5000,
+          "description": "Delay (ms) between credential tests in scan mode [P7 Rate Respect]."
+        },
+        "anansikey.maskSecretsInOutput": {
+          "type": "boolean",
+          "default": true,
+          "description": "Always mask secret values in the output panel [P6]. Keep this enabled."
+        }
+      }
+    },
+
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "anansikey",
+          "title": "Anansikey",
+          "icon": "media/logo.svg"
+        }
+      ]
+    },
+
+    "views": {
+      "anansikey": [
+        {
+          "id": "anansikey.results",
+          "name": "Validation Results"
+        }
+      ]
+    }
+  },
+
+  "scripts": {
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "^2.0.0"
+  }
+}
