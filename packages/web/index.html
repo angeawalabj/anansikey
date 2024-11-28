@@ -1,0 +1,1202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>anansikey — validate api credentials</title>
+<meta name="description" content="Validate API credentials locally. Keys never leave your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&display=swap">
+<style>
+/* ── Reset ──────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 13px; }
+
+/* ── Variables ──────────────────────────────────────────── */
+:root {
+  --bg:        #060d1a;
+  --bg-raised: #0a1525;
+  --bg-input:  #081120;
+  --border:    #0d1f3a;
+  --border-hi: #1a3a6a;
+  --text:      #c8d8f0;
+  --text-dim:  #4a6080;
+  --text-mid:  #7a9abf;
+  --accent:    #3d8ef0;
+  --green:     #00e87a;
+  --red:       #ff4757;
+  --amber:     #ffd32a;
+  --mono:      'IBM Plex Mono', 'Fira Code', 'Cascadia Code', monospace;
+}
+
+/* ── Base ───────────────────────────────────────────────── */
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 1rem;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* ── Layout ─────────────────────────────────────────────── */
+.shell {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+header {
+  border-bottom: 1px solid var(--border);
+  padding: 18px 0 16px;
+  display: flex;
+  align-items: baseline;
+  gap: 20px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+}
+
+.logo-mark {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
+.logo-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+
+.logo-name span { color: var(--accent); }
+
+.header-meta {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-left: auto;
+}
+
+.header-meta a {
+  color: var(--text-dim);
+  text-decoration: none;
+  margin-left: 16px;
+}
+.header-meta a:hover { color: var(--text-mid); }
+
+/* ── Main two-column layout ─────────────────────────────── */
+.workspace {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 0;
+  min-height: calc(100vh - 62px);
+}
+
+/* ── Sidebar: service picker ────────────────────────────── */
+.sidebar {
+  border-right: 1px solid var(--border);
+  padding: 20px 0;
+  position: sticky;
+  top: 0;
+  height: calc(100vh - 62px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.sidebar-section {
+  margin-bottom: 6px;
+}
+
+.sidebar-category {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 10px 20px 4px;
+}
+
+.service-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 20px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-mid);
+  font-family: var(--mono);
+  font-size: 12px;
+  text-align: left;
+  transition: background 0.08s, color 0.08s;
+}
+
+.service-btn:hover {
+  background: var(--border);
+  color: var(--text);
+}
+
+.service-btn.active {
+  background: var(--bg-raised);
+  color: var(--accent);
+  border-right: 2px solid var(--accent);
+}
+
+.service-btn .svc-icon { font-size: 14px; width: 18px; text-align: center; }
+.service-btn .svc-name { flex: 1; }
+.service-btn .svc-status {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--border-hi);
+  flex-shrink: 0;
+}
+.service-btn .svc-status.ok     { background: var(--green); }
+.service-btn .svc-status.fail   { background: var(--red); }
+.service-btn .svc-status.warn   { background: var(--amber); }
+
+/* ── Main area ──────────────────────────────────────────── */
+.main {
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* ── Breadcrumb ─────────────────────────────────────────── */
+.breadcrumb {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.breadcrumb span { color: var(--text-mid); }
+
+/* ── Service header ─────────────────────────────────────── */
+.service-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.service-icon-lg { font-size: 28px; line-height: 1; margin-top: 2px; }
+
+.service-title h2 {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 3px;
+}
+
+.service-title .docs-link {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-decoration: none;
+}
+.service-title .docs-link:hover { color: var(--accent); }
+
+/* ── Form fields ────────────────────────────────────────── */
+.fields { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+
+.field { display: flex; flex-direction: column; gap: 5px; }
+
+.field label {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.field input {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 9px 12px;
+  outline: none;
+  transition: border-color 0.12s;
+  width: 100%;
+}
+
+.field input:focus { border-color: var(--accent); }
+.field input::placeholder { color: var(--text-dim); }
+
+.field input.error  { border-color: var(--red); }
+.field input.ok     { border-color: var(--green); }
+.field input.warn   { border-color: var(--amber); }
+
+/* ── Submit button ──────────────────────────────────────── */
+.btn-validate {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 20px;
+  background: none;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+  letter-spacing: 0.03em;
+  user-select: none;
+}
+
+.btn-validate:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.btn-validate:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-validate .spinner {
+  width: 10px; height: 10px;
+  border: 1.5px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: none;
+}
+
+.btn-validate.loading .spinner { display: block; }
+.btn-validate.loading .btn-label { display: none; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Result panel ───────────────────────────────────────── */
+.result-panel {
+  margin-top: 20px;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  font-size: 12px;
+  display: none;
+}
+
+.result-panel.visible { display: block; }
+
+.result-bar {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+}
+
+.result-bar.ok   { border-left: 3px solid var(--green); }
+.result-bar.fail { border-left: 3px solid var(--red);   }
+.result-bar.warn { border-left: 3px solid var(--amber); }
+
+.result-icon { font-size: 13px; font-weight: 500; }
+.result-icon.ok   { color: var(--green); }
+.result-icon.fail { color: var(--red);   }
+.result-icon.warn { color: var(--amber); }
+
+.result-msg   { color: var(--text); flex: 1; }
+.result-code  { color: var(--text-dim); font-size: 10px; }
+
+.result-body {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.result-row {
+  display: flex;
+  gap: 10px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.result-row .rk { color: var(--text-dim); min-width: 70px; flex-shrink: 0; }
+.result-row .rv { color: var(--text); word-break: break-all; }
+.result-row .rv.dim { color: var(--text-mid); }
+.result-row .rv.fix { color: var(--amber); }
+
+/* ── P1 notice ──────────────────────────────────────────── */
+.p1-notice {
+  padding: 8px 14px;
+  border-top: 1px solid var(--border);
+  font-size: 10px;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── Scan .env panel ────────────────────────────────────── */
+.scan-panel { display: none; }
+.scan-panel.active { display: block; }
+
+.scan-area {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 12px;
+  width: 100%;
+  min-height: 160px;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.12s;
+  line-height: 1.7;
+}
+
+.scan-area:focus { border-color: var(--accent); }
+.scan-area::placeholder { color: var(--text-dim); }
+
+.scan-results {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.scan-row {
+  display: grid;
+  grid-template-columns: 20px 140px 1fr auto;
+  gap: 10px;
+  align-items: baseline;
+  font-size: 11px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+}
+
+.scan-row .sr-icon { text-align: center; }
+.scan-row .sr-name { color: var(--text-mid); }
+.scan-row .sr-msg  { color: var(--text); }
+.scan-row .sr-key  { color: var(--text-dim); text-align: right; font-size: 10px; }
+
+.scan-row.ok   { border-left: 2px solid var(--green); }
+.scan-row.fail { border-left: 2px solid var(--red);   }
+.scan-row.warn { border-left: 2px solid var(--amber); }
+
+/* ── Tab switcher ───────────────────────────────────────── */
+.tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+}
+
+.tab-btn {
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 11px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: -1px;
+  transition: color 0.1s;
+}
+
+.tab-btn.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.tab-btn:hover:not(.active) { color: var(--text-mid); }
+
+/* ── Stats bar ──────────────────────────────────────────── */
+.stats-bar {
+  display: flex;
+  gap: 0;
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+  margin-top: auto;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-right: 24px;
+}
+
+.stat-val {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1;
+}
+
+.stat-val.green { color: var(--green); }
+.stat-val.red   { color: var(--red);   }
+.stat-val.amber { color: var(--amber); }
+
+.stat-lbl {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* ── Principles sidebar ─────────────────────────────────── */
+.principles {
+  border-top: 1px solid var(--border);
+  padding: 16px 20px 0;
+  margin-top: 20px;
+}
+
+.principles p {
+  font-size: 10px;
+  color: var(--text-dim);
+  line-height: 1.8;
+  margin-bottom: 4px;
+}
+
+.principles p strong {
+  color: var(--text-mid);
+  font-weight: 400;
+}
+
+/* ── Welcome state ──────────────────────────────────────── */
+.welcome {
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 2;
+  padding: 20px 0;
+}
+
+.welcome .cmd {
+  color: var(--accent);
+  display: block;
+  margin-top: 6px;
+}
+
+/* ── Scrollbar ──────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-hi); }
+
+/* ── Responsive ─────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .workspace { grid-template-columns: 1fr; }
+  .sidebar {
+    height: auto;
+    position: static;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 12px 0;
+  }
+  .sidebar-section { display: inline-flex; white-space: nowrap; }
+  .sidebar-category { display: none; }
+  .service-btn { padding: 6px 12px; }
+}
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+<!-- ── Header ───────────────────────────────────────────── -->
+<header>
+  <a class="logo" href="/">
+    <!-- Inline SVG logo: hexagon + key + spider legs -->
+    <svg class="logo-mark" viewBox="0 0 40 40" fill="none">
+      <!-- spider legs -->
+      <line x1="20" y1="3"  x2="13" y2="0"  stroke="#3d8ef0" stroke-width="0.8" stroke-linecap="round" opacity=".5"/>
+      <line x1="20" y1="3"  x2="27" y2="0"  stroke="#3d8ef0" stroke-width="0.8" stroke-linecap="round" opacity=".5"/>
+      <line x1="35" y1="12" x2="40" y2="8"  stroke="#3d8ef0" stroke-width="0.8" stroke-linecap="round" opacity=".5"/>
+      <line x1="35" y1="28" x2="40" y2="32" stroke="#3d8ef0" stroke-width="0.8" stroke-linecap="round" opacity=".5"/>
+      <line x1="20" y1="37" x2="27" y2="40" stroke="#3d8ef0" stroke-width="0.8" stroke-linecap="round" opacity=".5"/>
+      <line x1="20" y1="37" x2="13" y2="40" stroke="#3d8ef0" stroke-width="0.8" stroke-linecap="round" opacity=".5"/>
+      <line x1="5"  y1="28" x2="0"  y2="32" stroke="#3d8ef0" stroke-width="0.8" stroke-linecap="round" opacity=".5"/>
+      <line x1="5"  y1="12" x2="0"  y2="8"  stroke="#3d8ef0" stroke-width="0.8" stroke-linecap="round" opacity=".5"/>
+      <!-- hex -->
+      <polygon points="20,3 35,12 35,28 20,37 5,28 5,12" fill="#080f1e" stroke="#3d8ef0" stroke-width="1.2"/>
+      <!-- key head -->
+      <circle cx="20" cy="17" r="5.5" fill="none" stroke="#3d8ef0" stroke-width="1.8"/>
+      <circle cx="20" cy="17" r="2"   fill="#080f1e"/>
+      <!-- key shaft -->
+      <rect x="18.5" y="22" width="3" height="9" rx="1" fill="#3d8ef0"/>
+      <!-- key teeth -->
+      <rect x="21.5" y="25" width="3" height="2" rx=".5" fill="#3d8ef0"/>
+      <rect x="21.5" y="28" width="2" height="1.5" rx=".5" fill="#3d8ef0"/>
+    </svg>
+    <span class="logo-name">anans<span>i</span>key</span>
+  </a>
+  <div class="header-meta">
+    <a href="https://github.com/anansikey/anansikey" target="_blank">github</a>
+    <a href="https://github.com/anansikey/anansikey/wiki" target="_blank">docs</a>
+    <a href="https://marketplace.visualstudio.com/items?itemName=anansikey.anansikey" target="_blank">vscode</a>
+  </div>
+</header>
+
+<!-- ── Workspace ─────────────────────────────────────────── -->
+<div class="workspace">
+
+  <!-- ── Sidebar ─────────────────────────────────────────── -->
+  <aside class="sidebar" id="sidebar">
+    <!-- populated by JS -->
+    <div class="principles">
+      <p><strong>[P1]</strong> zero-knowledge</p>
+      <p><strong>[P2]</strong> read-only</p>
+      <p><strong>[P6]</strong> keys masked</p>
+      <p><strong>[P8]</strong> honest identity</p>
+    </div>
+  </aside>
+
+  <!-- ── Main ─────────────────────────────────────────────── -->
+  <main class="main">
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="single">single key</button>
+      <button class="tab-btn" data-tab="scan">scan .env</button>
+    </div>
+
+    <!-- Single key tab -->
+    <div id="tab-single">
+      <div id="welcome-state" class="welcome">
+        <div>← select a service to validate</div>
+        <div style="margin-top:16px;font-size:11px;color:var(--text-dim)">
+          or via cli:
+          <code class="cmd">$ anansikey check stripe --secret_key=sk_test_xxx</code>
+        </div>
+      </div>
+
+      <div id="service-view" style="display:none">
+        <div class="service-header">
+          <div class="service-icon-lg" id="svc-icon"></div>
+          <div class="service-title">
+            <h2 id="svc-name"></h2>
+            <a id="svc-docs" class="docs-link" href="#" target="_blank">→ documentation</a>
+          </div>
+        </div>
+
+        <div class="fields" id="fields-container"></div>
+
+        <button class="btn-validate" id="btn-validate">
+          <span class="spinner"></span>
+          <span class="btn-label">$ validate</span>
+        </button>
+
+        <div class="result-panel" id="result-panel">
+          <div class="result-bar" id="result-bar">
+            <span class="result-icon" id="result-icon"></span>
+            <span class="result-msg"  id="result-msg"></span>
+            <span class="result-code" id="result-code"></span>
+          </div>
+          <div class="result-body" id="result-body"></div>
+          <div class="p1-notice">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+              <circle cx="5" cy="5" r="4.5" stroke="#4a6080"/>
+              <line x1="5" y1="3" x2="5" y2="5.5" stroke="#4a6080" stroke-width="1.2" stroke-linecap="round"/>
+              <circle cx="5" cy="7" r=".6" fill="#4a6080"/>
+            </svg>
+            credentials sent directly to provider api — not to anansikey [P1]
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scan .env tab -->
+    <div id="tab-scan" class="scan-panel">
+      <textarea
+        id="scan-input"
+        class="scan-area"
+        spellcheck="false"
+        placeholder="# paste your .env contents here&#10;STRIPE_SECRET_KEY=sk_test_xxx&#10;OPENAI_API_KEY=sk-xxx&#10;GITHUB_TOKEN=ghp_xxx&#10;&#10;# values never leave your browser [P1]"
+      ></textarea>
+
+      <div style="margin-top:12px;display:flex;gap:10px;align-items:center">
+        <button class="btn-validate" id="btn-scan">
+          <span class="spinner"></span>
+          <span class="btn-label">$ scan</span>
+        </button>
+        <span id="scan-hint" style="font-size:11px;color:var(--text-dim)"></span>
+      </div>
+
+      <div class="scan-results" id="scan-results"></div>
+    </div>
+
+  </main>
+</div><!-- /workspace -->
+</div><!-- /shell -->
+
+<script type="module">
+// ── Import core providers + browser adapter ───────────────────
+// In production: these are bundled. In dev: loaded from relative path.
+// For this single-file version: providers are inlined below.
+
+// ── Mask helper [P6] ─────────────────────────────────────────
+function maskSecret(value) {
+  if (value == null || value === '') return '••••••••';
+  const s = String(value), len = s.length;
+  if (len <= 8) return '••••••••';
+  const head = Math.min(4, Math.floor(len * 0.15));
+  const tail = Math.min(4, Math.floor(len * 0.15));
+  return s.slice(0, head) + '••••••••' + s.slice(len - tail);
+}
+
+// ── Result constructors ───────────────────────────────────────
+const ok      = (msg, detail='') => ({ type:'success', msg, detail });
+const fail    = (code, msg, fix='') => ({ type:'error', code, msg, fix });
+const warn    = (code, msg, fix='') => ({ type:'warn', code, msg, fix });
+const malformed = (status) => fail('MALFORMED_RESPONSE',
+  `API returned unparseable response (HTTP ${status})`,
+  'The provider API may have changed — check github.com/anansikey/anansikey/issues');
+
+// ── Browser HTTP adapter [P1][P8] ─────────────────────────────
+async function request(descriptor) {
+  const { hostname, path, method='GET', headers={}, port=443, body=null } = descriptor;
+  const url = `https://${hostname}${port !== 443 ? ':' + port : ''}${path}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000);
+  try {
+    const res = await fetch(url, {
+      method,
+      signal: controller.signal,
+      headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', ...headers },
+      ...(body ? { body } : {}),
+    });
+    const raw = await res.text();
+    let parsed;
+    try { parsed = JSON.parse(raw); }
+    catch { parsed = { _raw: raw, _malformed: true }; }
+    return { status: res.status, body: parsed, raw };
+  } catch(e) {
+    if (e.name === 'AbortError') throw new Error('TIMEOUT');
+    if (e.message?.toLowerCase().includes('cors') || e.message?.toLowerCase().includes('fetch'))
+      throw new Error('CORS');
+    throw e;
+  } finally { clearTimeout(timer); }
+}
+
+function netErr(e) {
+  const m = e?.message ?? '';
+  if (m.includes('TIMEOUT'))
+    return fail('TIMEOUT', 'Request timed out (10s)', 'Check your connection and try again');
+  if (m.includes('CORS') || m.includes('fetch'))
+    return fail('CORS_BLOCK', 'Request blocked by browser CORS policy',
+      'Use the CLI for this provider — it has no CORS restrictions\n$ anansikey check ' + (window._activeProvider?.id ?? 'stripe'));
+  return fail('NETWORK_ERROR', `Network error: ${m}`, 'Check your internet connection');
+}
+
+// ── Provider registry (browser version) ──────────────────────
+// Shape: { id, name, icon, category, fields, env_vars, docs, format, request, parse }
+
+const PROVIDERS = [
+
+{ id:'stripe', name:'Stripe', icon:'💳', category:'Payments',
+  docs:'https://dashboard.stripe.com/apikeys',
+  fields:[{name:'secret_key',label:'Secret Key',placeholder:'sk_test_...'}],
+  env_vars:['STRIPE_SECRET_KEY'],
+  format({secret_key}){
+    const k=secret_key?.trim()??'';
+    if(!k) return fail('MISSING_KEY','Secret key is required');
+    if(k.startsWith('pk_test_')||k.startsWith('pk_live_'))
+      return fail('FORMAT_ERROR','This is a PUBLISHABLE key — use the SECRET key (sk_...)');
+    if(!k.startsWith('sk_test_')&&!k.startsWith('sk_live_'))
+      return fail('FORMAT_ERROR','Stripe secret keys start with sk_test_ or sk_live_');
+    if(k.length<30) return fail('FORMAT_ERROR',`Key too short (${k.length} chars) — likely truncated`);
+    return null;
+  },
+  request({secret_key}){return{hostname:'api.stripe.com',path:'/v1/account',headers:{'Authorization':`Bearer ${secret_key.trim()}`}};},
+  parse(status,body,creds){
+    if(body?._malformed) return malformed(status);
+    if(status===200) return ok(`Stripe: ${body.email??body.id??'account verified'}`,`mode: ${creds?.secret_key?.startsWith('sk_live_')?'LIVE ⚠':'test ✓'} · key: ${maskSecret(creds?.secret_key)}`);
+    if(status===401) return fail('AUTH_FAILED',body.error?.message??'Invalid API key','Regenerate at dashboard.stripe.com → Developers → API Keys');
+    if(status===403) return fail('PERMISSION_DENIED',body.error?.message??'Key restricted','Check key permissions at dashboard.stripe.com → Restricted keys');
+    if(status===429) return fail('RATE_LIMITED','Rate limit reached','Wait a moment and try again');
+    if(status>=500) return fail('API_ERROR',`Stripe unavailable (HTTP ${status})`,'status.stripe.com');
+    return fail('API_ERROR',body.error?.message??`HTTP ${status}`);
+  }},
+
+{ id:'github', name:'GitHub', icon:'🐙', category:'Dev Tools',
+  docs:'https://github.com/settings/tokens',
+  fields:[{name:'token',label:'Personal Access Token',placeholder:'ghp_...'}],
+  env_vars:['GITHUB_TOKEN','GH_TOKEN'],
+  format({token}){
+    const k=token?.trim()??'';
+    if(!k) return fail('MISSING_KEY','Token is required');
+    if(k.startsWith('ghp_')||k.startsWith('gho_')||k.startsWith('ghs_')||k.startsWith('github_pat_')) return null;
+    if(/^[a-f0-9]{40}$/.test(k)) return warn('FORMAT_WARNING','Legacy 40-char hex token — still works but consider upgrading','github.com/settings/tokens → Fine-grained token');
+    return fail('FORMAT_ERROR','Token must start with ghp_, gho_, ghs_, or github_pat_');
+  },
+  request({token}){return{hostname:'api.github.com',path:'/user',headers:{'Authorization':`Bearer ${token.trim()}`,'X-GitHub-Api-Version':'2022-11-28'}};},
+  parse(status,body,creds){
+    if(body?._malformed) return malformed(status);
+    if(status===200) return ok(`GitHub: @${body.login??'unknown'}`,`${body.name??''} · repos: ${body.public_repos??'?'} · key: ${maskSecret(creds?.token)}`);
+    if(status===401) return fail('AUTH_FAILED',body.message??'Bad credentials','Regenerate at github.com/settings/tokens');
+    if(status===403) return fail('PERMISSION_DENIED',body.message??'Forbidden','Check token scopes — needs at least read:user');
+    if(status===429) return fail('RATE_LIMITED','Rate limit reached','Wait 60 seconds');
+    return fail('API_ERROR',body.message??`HTTP ${status}`);
+  }},
+
+{ id:'openai', name:'OpenAI', icon:'🤖', category:'AI / ML',
+  docs:'https://platform.openai.com/api-keys',
+  fields:[{name:'api_key',label:'API Key',placeholder:'sk-...'}],
+  env_vars:['OPENAI_API_KEY'],
+  format({api_key}){
+    const k=api_key?.trim()??'';
+    if(!k) return fail('MISSING_KEY','API key is required');
+    if(k.startsWith('sk-proj-')||k.startsWith('sk-svcacct-')) return null;
+    if(k.startsWith('sk-')&&k.length>=40) return null;
+    if(k.startsWith('sk-')&&k.length<40) return fail('FORMAT_ERROR',`Key too short (${k.length} chars)`,'Copy the full key from platform.openai.com/api-keys');
+    return fail('FORMAT_ERROR','OpenAI keys start with sk-');
+  },
+  request({api_key}){return{hostname:'api.openai.com',path:'/v1/models',headers:{'Authorization':`Bearer ${api_key.trim()}`}};},
+  parse(status,body,creds){
+    if(body?._malformed) return malformed(status);
+    if(status===200) return ok(`OpenAI: ${body.data?.length??0} model(s) available`,`key: ${maskSecret(creds?.api_key)}`);
+    if(status===401) return fail('AUTH_FAILED',body.error?.message??'Invalid API key','Regenerate at platform.openai.com/api-keys');
+    if(status===429) return fail('RATE_LIMITED',body.error?.code==='insufficient_quota'?'Quota exceeded':'Rate limit reached',body.error?.code==='insufficient_quota'?'Add payment at platform.openai.com/account/billing':'Wait a moment');
+    if(status>=500) return fail('API_ERROR',`OpenAI unavailable (HTTP ${status})`,'status.openai.com');
+    return fail('API_ERROR',body.error?.message??`HTTP ${status}`);
+  }},
+
+{ id:'supabase', name:'Supabase', icon:'⚡', category:'Database',
+  docs:'https://app.supabase.com/project/_/settings/api',
+  fields:[{name:'url',label:'Project URL',placeholder:'https://xxx.supabase.co'},{name:'key',label:'Anon Key',placeholder:'eyJ...'}],
+  env_vars:['SUPABASE_URL','SUPABASE_ANON_KEY','NEXT_PUBLIC_SUPABASE_URL','NEXT_PUBLIC_SUPABASE_ANON_KEY'],
+  format({url,key}){
+    const u=url?.trim()??'',k=key?.trim()??'';
+    if(!u) return fail('MISSING_KEY','Project URL is required');
+    if(!u.includes('.supabase.co')&&!u.includes('localhost')) return fail('FORMAT_ERROR','URL must be a Supabase project URL (*.supabase.co)');
+    if(!k) return fail('MISSING_KEY','Anon key is required');
+    if(!k.startsWith('eyJ')) return fail('FORMAT_ERROR','Anon key must be a JWT (starts with eyJ)');
+    return null;
+  },
+  request({url,key}){const host=url.trim().replace(/^https?:\/\//,'').replace(/\/$/,'');return{hostname:host,path:'/rest/v1/',headers:{'apikey':key.trim(),'Authorization':`Bearer ${key.trim()}`}};},
+  parse(status,body,creds){
+    if(body?._malformed) return malformed(status);
+    if(status===200||status===404) return ok('Supabase connected',`project: ${creds?.url?.replace('https://','')??'N/A'} · key: ${maskSecret(creds?.key)}`);
+    if(status===401) return fail('AUTH_FAILED','Invalid anon key','Regenerate at app.supabase.com → Project → Settings → API');
+    if(status===403) return fail('PERMISSION_DENIED','Key valid but access denied — check RLS policies','app.supabase.com → Authentication → Policies');
+    return fail('API_ERROR',`HTTP ${status}`);
+  }},
+
+{ id:'resend', name:'Resend', icon:'✉️', category:'Email',
+  docs:'https://resend.com/api-keys',
+  fields:[{name:'api_key',label:'API Key',placeholder:'re_...'}],
+  env_vars:['RESEND_API_KEY'],
+  format({api_key}){
+    const k=api_key?.trim()??'';
+    if(!k) return fail('MISSING_KEY','API key is required');
+    if(!k.startsWith('re_')) return fail('FORMAT_ERROR','Resend API keys start with "re_"');
+    if(k.length<20) return fail('FORMAT_ERROR',`Key too short (${k.length} chars)`);
+    return null;
+  },
+  request({api_key}){return{hostname:'api.resend.com',path:'/domains',headers:{'Authorization':`Bearer ${api_key.trim()}`}};},
+  parse(status,body,creds){
+    if(body?._malformed) return malformed(status);
+    if(status===200) return ok(`Resend: ${body.data?.length??0} domain(s)`,`key: ${maskSecret(creds?.api_key)}`);
+    if(status===401) return fail('AUTH_FAILED',body.message??'Invalid API key','Regenerate at resend.com/api-keys');
+    if(status===403) return fail('PERMISSION_DENIED',body.message??'Access forbidden','Check key permissions at resend.com/api-keys');
+    if(status===429) return fail('RATE_LIMITED','Rate limit reached','Wait and retry');
+    if(status>=500) return fail('API_ERROR',`Resend unavailable (HTTP ${status})`,'resend.com/status');
+    return fail('API_ERROR',body.message??`HTTP ${status}`);
+  }},
+
+{ id:'notion', name:'Notion', icon:'📓', category:'Productivity',
+  docs:'https://www.notion.so/my-integrations',
+  fields:[{name:'token',label:'Integration Token',placeholder:'secret_...'}],
+  env_vars:['NOTION_TOKEN','NOTION_API_KEY','NOTION_SECRET'],
+  format({token}){
+    const k=token?.trim()??'';
+    if(!k) return fail('MISSING_KEY','Token is required');
+    if(!k.startsWith('secret_')&&!k.startsWith('ntn_')) return fail('FORMAT_ERROR','Notion tokens start with "secret_" or "ntn_"');
+    return null;
+  },
+  request({token}){return{hostname:'api.notion.com',path:'/v1/users/me',headers:{'Authorization':`Bearer ${token.trim()}`,'Notion-Version':'2022-06-28'}};},
+  parse(status,body,creds){
+    if(body?._malformed) return malformed(status);
+    if(status===200) return ok(`Notion: ${body.name??body.type??'connected'} (${body.type??'bot'})`,`workspace: ${body.bot?.workspace_name??'N/A'} · key: ${maskSecret(creds?.token)}`);
+    if(status===401) return fail('AUTH_FAILED',body.message??'Invalid token','Regenerate at notion.so/my-integrations');
+    if(status===403) return fail('PERMISSION_DENIED','Integration not added to any page','Share a page: notion.so → Share → Invite → your integration');
+    if(status===429) return fail('RATE_LIMITED','Rate limit reached','Wait a moment');
+    if(status>=500) return fail('API_ERROR',`Notion unavailable (HTTP ${status})`,'status.notion.so');
+    return fail('API_ERROR',body.message??`HTTP ${status}`);
+  }},
+
+{ id:'airtable', name:'Airtable', icon:'📊', category:'Database',
+  docs:'https://airtable.com/create/tokens',
+  fields:[{name:'token',label:'Personal Access Token',placeholder:'pat... or key...'}],
+  env_vars:['AIRTABLE_TOKEN','AIRTABLE_API_KEY'],
+  format({token}){
+    const k=token?.trim()??'';
+    if(!k) return fail('MISSING_KEY','Token is required');
+    if(k.startsWith('pat')) return null;
+    if(k.startsWith('key')&&k.length===17) return null;
+    return fail('FORMAT_ERROR','Token must start with "pat" (modern) or "key" (legacy, 17 chars)');
+  },
+  request({token}){return{hostname:'api.airtable.com',path:'/v0/meta/whoami',headers:{'Authorization':`Bearer ${token.trim()}`}};},
+  parse(status,body,creds){
+    if(body?._malformed) return malformed(status);
+    if(status===200) return ok(`Airtable: user ${body.id??'connected'}`,`scopes: ${body.scopes?.join(', ')??'N/A'} · key: ${maskSecret(creds?.token)}`);
+    if(status===401) return fail('AUTH_FAILED',body.error?.message??'Invalid token','Regenerate at airtable.com/create/tokens');
+    if(status===403) return fail('PERMISSION_DENIED','Token lacks required scopes','Edit token at airtable.com/create/tokens');
+    if(status===429) return fail('RATE_LIMITED','Rate limit reached','Wait 30 seconds');
+    return fail('API_ERROR',body.error?.message??`HTTP ${status}`);
+  }},
+
+{ id:'pinecone', name:'Pinecone', icon:'🌲', category:'AI / ML',
+  docs:'https://app.pinecone.io',
+  fields:[{name:'api_key',label:'API Key',placeholder:'xxxxxxxx-...'}],
+  env_vars:['PINECONE_API_KEY'],
+  format({api_key}){
+    const k=api_key?.trim()??'';
+    if(!k) return fail('MISSING_KEY','API key is required');
+    if(k.length<20) return fail('FORMAT_ERROR',`Key too short (${k.length} chars)`);
+    return null;
+  },
+  request({api_key}){return{hostname:'api.pinecone.io',path:'/indexes',headers:{'Api-Key':api_key.trim()}};},
+  parse(status,body,creds){
+    if(body?._malformed) return malformed(status);
+    if(status===200){const c=Array.isArray(body.indexes)?body.indexes.length:(body.indexes??0);return ok(`Pinecone: ${c} index(es)`,`key: ${maskSecret(creds?.api_key)}`);}
+    if(status===401) return fail('AUTH_FAILED',body.message??'Invalid API key','Regenerate at app.pinecone.io → API Keys');
+    if(status===403) return fail('PERMISSION_DENIED',body.message??'Access forbidden','Check project access at app.pinecone.io');
+    if(status===429) return fail('RATE_LIMITED','Rate limit reached','Wait and retry');
+    return fail('API_ERROR',body.message??`HTTP ${status}`);
+  }},
+
+{ id:'vonage', name:'Vonage', icon:'📞', category:'SMS / Calls',
+  docs:'https://dashboard.nexmo.com/settings',
+  fields:[{name:'api_key',label:'API Key (8 hex chars)',placeholder:'a1b2c3d4'},{name:'api_secret',label:'API Secret (16 chars)',placeholder:'xxxxxxxxxxxxxxxx'}],
+  env_vars:['VONAGE_API_KEY','NEXMO_API_KEY','VONAGE_API_SECRET','NEXMO_API_SECRET'],
+  format({api_key,api_secret}){
+    const k=api_key?.trim()??'',s=api_secret?.trim()??'';
+    if(!k) return fail('MISSING_KEY','API key is required');
+    if(!/^[a-f0-9]{8}$/.test(k)) return fail('FORMAT_ERROR',k.length!==8?`API key must be 8 chars (you have ${k.length})`:'API key must be 8 lowercase hex chars (0-9, a-f)');
+    if(!s) return fail('MISSING_KEY','API secret is required');
+    if(!/^[a-zA-Z0-9]{16}$/.test(s)) return fail('FORMAT_ERROR',s.length!==16?`API secret must be 16 chars (you have ${s.length})`:'API secret must be 16 alphanumeric chars');
+    return null;
+  },
+  request({api_key,api_secret}){return{hostname:'rest.nexmo.com',path:`/v1/account/get-balance?api_key=${api_key.trim()}&api_secret=${api_secret.trim()}`};},
+  parse(status,body,creds){
+    if(body?._malformed) return malformed(status);
+    if(status===200){const b=body.value;if(typeof b==='number'&&b<1) return warn('LOW_BALANCE',`Balance low: €${b.toFixed(2)}`,'Top up at dashboard.nexmo.com → Billing');return ok(`Vonage: €${typeof b==='number'?b.toFixed(2):'N/A'}`,`auto-reload: ${body.autoReload?'on':'off'} · key: ${maskSecret(creds?.api_key)}`);}
+    if(status===401) return fail('AUTH_FAILED',body.detail??body.title??'Invalid credentials','Check at dashboard.nexmo.com → API Settings');
+    if(status===429) return fail('RATE_LIMITED','Rate limit reached (30 req/s)','Wait 60 seconds');
+    if(status>=500) return fail('API_ERROR',`Vonage unavailable (HTTP ${status})`,'status.vonage.com');
+    return fail('API_ERROR',body.detail??`HTTP ${status}`);
+  }},
+
+{ id:'paystack', name:'PayStack', icon:'💚', category:'Payments',
+  docs:'https://dashboard.paystack.com/#/settings/developers',
+  fields:[{name:'secret_key',label:'Secret Key',placeholder:'sk_test_...'}],
+  env_vars:['PAYSTACK_SECRET_KEY'],
+  format({secret_key}){
+    const k=secret_key?.trim()??'';
+    if(!k) return fail('MISSING_KEY','Secret key is required');
+    if(k.startsWith('pk_test_')||k.startsWith('pk_live_')) return fail('FORMAT_ERROR','This is a PUBLIC key (pk_...) — use the SECRET key (sk_...)');
+    if(!k.startsWith('sk_test_')&&!k.startsWith('sk_live_')) return fail('FORMAT_ERROR','PayStack keys start with sk_test_ or sk_live_');
+    const sfx=k.slice(k.startsWith('sk_test_')?8:8);
+    if(sfx.length!==40) return fail('FORMAT_ERROR',`Key suffix must be 40 chars (you have ${sfx.length})`);
+    if(!/^[a-f0-9]{40}$/.test(sfx)) return fail('FORMAT_ERROR','Key suffix must be lowercase hex (0-9, a-f)');
+    return null;
+  },
+  request({secret_key}){return{hostname:'api.paystack.co',path:'/balance',headers:{'Authorization':`Bearer ${secret_key.trim()}`}};},
+  parse(status,body,creds){
+    if(body?._malformed) return malformed(status);
+    const isLive=creds?.secret_key?.startsWith('sk_live_');
+    if(status===200&&body?.status===true){const CURR={NGN:{d:100,s:'₦'},GHS:{d:100,s:'GH₵'},ZAR:{d:100,s:'R'},USD:{d:100,s:'$'}};const bstr=(body.data??[]).map(b=>{const c=CURR[b.currency]??{d:100,s:b.currency};return `${c.s}${(b.balance/c.d).toFixed(2)} ${b.currency}`;}).join(' · ')||'N/A';return ok(`PayStack: ${bstr}`,`mode: ${isLive?'LIVE ⚠':'test ✓'} · key: ${maskSecret(creds?.secret_key)}`);}
+    if(status===200&&body?.status===false) return fail('AUTH_FAILED',body.message??'Key rejected','Regenerate at dashboard.paystack.com → Settings → API Keys');
+    if(status===401) return fail('AUTH_FAILED',body?.message??'Invalid key','Regenerate at dashboard.paystack.com → Settings → API Keys');
+    if(status===403) return fail('PERMISSION_DENIED','Access denied',isLive?'Live key may have IP restrictions — whitelist at dashboard.paystack.com':'Check account status at dashboard.paystack.com');
+    if(status===429) return fail('RATE_LIMITED','Rate limit reached (60 req/min)','Wait 60 seconds');
+    if(status>=500) return fail('API_ERROR',`PayStack unavailable (HTTP ${status})`,'status.paystack.com');
+    return fail('API_ERROR',body?.message??`HTTP ${status}`);
+  }},
+
+];
+
+// ── Env var → provider map ────────────────────────────────────
+const ENV_MAP = {};
+for (const p of PROVIDERS)
+  for (const ev of p.env_vars ?? [])
+    (ENV_MAP[ev] = ENV_MAP[ev] ?? []).push(p);
+
+function detectServices(vars) {
+  const found = new Map();
+  for (const [key, val] of Object.entries(vars)) {
+    for (const provider of (ENV_MAP[key] ?? [])) {
+      if (!found.has(provider.id)) found.set(provider.id, { provider, creds: {} });
+      // Map env var → field name
+      const field = provider.fields.length === 1
+        ? provider.fields[0].name
+        : provider.fields.find(f => key.toLowerCase().includes(f.name.toLowerCase()))?.name;
+      if (field) found.get(provider.id).creds[field] = val;
+    }
+  }
+  return [...found.values()].filter(({ provider, creds }) =>
+    provider.fields.every(f => creds[f.name] != null)
+  );
+}
+
+async function runProvider(provider, creds) {
+  const fmt = provider.format(creds);
+  if (fmt) return fmt;
+  const desc = provider.request(creds);
+  try {
+    const res = await request(desc);
+    return provider.parse(res.status, res.body, creds);
+  } catch (e) { return netErr(e); }
+}
+
+// ── Build sidebar ────────────────────────────────────────────
+const sidebar = document.getElementById('sidebar');
+const byCategory = {};
+for (const p of PROVIDERS) {
+  (byCategory[p.category] = byCategory[p.category] ?? []).push(p);
+}
+
+for (const [cat, providers] of Object.entries(byCategory)) {
+  const sec = document.createElement('div');
+  sec.className = 'sidebar-section';
+  sec.innerHTML = `<div class="sidebar-category">${cat}</div>`;
+  for (const p of providers) {
+    const btn = document.createElement('button');
+    btn.className = 'service-btn';
+    btn.dataset.id = p.id;
+    btn.innerHTML = `
+      <span class="svc-icon">${p.icon}</span>
+      <span class="svc-name">${p.name}</span>
+      <span class="svc-status" id="dot-${p.id}"></span>`;
+    btn.addEventListener('click', () => selectProvider(p));
+    sec.appendChild(btn);
+  }
+  sidebar.insertBefore(sec, sidebar.querySelector('.principles'));
+}
+
+// ── State ────────────────────────────────────────────────────
+let _active = null;
+window._activeProvider = null;
+
+function selectProvider(provider) {
+  _active = provider;
+  window._activeProvider = provider;
+
+  // Update sidebar selection
+  document.querySelectorAll('.service-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.id === provider.id);
+  });
+
+  // Breadcrumb
+  document.querySelector('.breadcrumb span').textContent = provider.name;
+
+  // Service header
+  document.getElementById('svc-icon').textContent = provider.icon;
+  document.getElementById('svc-name').textContent  = provider.name;
+  const docsLink = document.getElementById('svc-docs');
+  docsLink.href = provider.docs;
+  docsLink.textContent = `→ ${new URL(provider.docs).hostname}`;
+
+  // Build fields
+  const container = document.getElementById('fields-container');
+  container.innerHTML = '';
+  for (const field of provider.fields) {
+    const div = document.createElement('div');
+    div.className = 'field';
+    div.innerHTML = `
+      <label for="field-${field.name}">${field.label}</label>
+      <input id="field-${field.name}"
+             type="text"
+             name="${field.name}"
+             autocomplete="off"
+             autocorrect="off"
+             spellcheck="false"
+             placeholder="${field.placeholder}">`;
+    container.appendChild(div);
+  }
+
+  // Reset result
+  const panel = document.getElementById('result-panel');
+  panel.className = 'result-panel';
+  panel.querySelectorAll('input').forEach(i => { i.className = ''; });
+
+  // Show service view
+  document.getElementById('welcome-state').style.display = 'none';
+  document.getElementById('service-view').style.display  = 'block';
+
+  // Focus first field
+  setTimeout(() => container.querySelector('input')?.focus(), 0);
+}
+
+// ── Validate single ──────────────────────────────────────────
+document.getElementById('btn-validate').addEventListener('click', async () => {
+  if (!_active) return;
+
+  const btn = document.getElementById('btn-validate');
+  const creds = {};
+  for (const field of _active.fields) {
+    creds[field.name] = document.getElementById(`field-${field.name}`)?.value ?? '';
+  }
+
+  // Loading state
+  btn.classList.add('loading');
+  btn.disabled = true;
+
+  const result = await runProvider(_active, creds);
+
+  btn.classList.remove('loading');
+  btn.disabled = false;
+
+  showResult(result, creds);
+
+  // Update sidebar dot
+  const dot = document.getElementById(`dot-${_active.id}`);
+  if (dot) dot.className = `svc-status ${result.type === 'success' ? 'ok' : result.type === 'warn' ? 'warn' : 'fail'}`;
+});
+
+function showResult(result, creds) {
+  const panel = document.getElementById('result-panel');
+  const bar   = document.getElementById('result-bar');
+  const icon  = document.getElementById('result-icon');
+  const msg   = document.getElementById('result-msg');
+  const code  = document.getElementById('result-code');
+  const body  = document.getElementById('result-body');
+
+  const type = result.type;
+  const cls  = type === 'success' ? 'ok' : type === 'warn' ? 'warn' : 'fail';
+
+  bar.className   = `result-bar ${cls}`;
+  icon.className  = `result-icon ${cls}`;
+  icon.textContent = type === 'success' ? '✓' : type === 'warn' ? '⚠' : '✗';
+  msg.textContent  = result.msg;
+  code.textContent = result.code ?? '';
+
+  body.innerHTML = '';
+
+  if (result.detail) {
+    for (const line of result.detail.split('\n')) {
+      const [k, ...rest] = line.split(':');
+      if (rest.length) {
+        body.insertAdjacentHTML('beforeend',
+          `<div class="result-row"><span class="rk">${k.trim()}</span><span class="rv">${rest.join(':').trim()}</span></div>`);
+      }
+    }
+  }
+
+  if (result.fix) {
+    const lines = result.fix.split('\n');
+    body.insertAdjacentHTML('beforeend',
+      `<div class="result-row"><span class="rk">fix</span><span class="rv fix">${lines[0]}</span></div>`);
+  }
+
+  // Colour field borders
+  if (_active) {
+    for (const field of _active.fields) {
+      const input = document.getElementById(`field-${field.name}`);
+      if (input) input.className = cls;
+    }
+  }
+
+  panel.className = 'result-panel visible';
+}
+
+// ── Tabs ──────────────────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const tab = btn.dataset.tab;
+    document.getElementById('tab-single').style.display = tab === 'single' ? 'block' : 'none';
+    document.getElementById('tab-scan').classList.toggle('active', tab === 'scan');
+  });
+});
+
+// ── Scan .env ─────────────────────────────────────────────────
+function parseEnv(text) {
+  const vars = {};
+  for (const raw of text.split('\n')) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+    const eq = line.indexOf('=');
+    if (eq < 1) continue;
+    const key = line.slice(0, eq).trim();
+    let   val = line.slice(eq + 1).trim();
+    if ((val.startsWith('"') && val.endsWith('"')) ||
+        (val.startsWith("'") && val.endsWith("'")))
+      val = val.slice(1, -1);
+    if (key) vars[key] = val;
+  }
+  return vars;
+}
+
+document.getElementById('btn-scan').addEventListener('click', async () => {
+  const text = document.getElementById('scan-input').value.trim();
+  if (!text) return;
+
+  const vars     = parseEnv(text);
+  const detected = detectServices(vars);
+  const hint     = document.getElementById('scan-hint');
+  const results  = document.getElementById('scan-results');
+  const btn      = document.getElementById('btn-scan');
+
+  if (!detected.length) {
+    hint.textContent = 'no recognized credential keys found';
+    results.innerHTML = '';
+    return;
+  }
+
+  hint.textContent = `${detected.length} service(s) detected`;
+  results.innerHTML = '';
+  btn.classList.add('loading');
+  btn.disabled = true;
+
+  for (let i = 0; i < detected.length; i++) {
+    const { provider, creds } = detected[i];
+
+    // Placeholder row while loading
+    const row = document.createElement('div');
+    row.className = 'scan-row';
+    row.innerHTML = `
+      <span class="sr-icon">${provider.icon}</span>
+      <span class="sr-name">${provider.name}</span>
+      <span class="sr-msg" style="color:var(--text-dim)">testing...</span>
+      <span class="sr-key">${maskSecret(Object.values(creds)[0]??'')}</span>`;
+    results.appendChild(row);
+
+    const result = await runProvider(provider, creds);
+    const cls    = result.type === 'success' ? 'ok' : result.type === 'warn' ? 'warn' : 'fail';
+    const icon   = result.type === 'success' ? '✓' : result.type === 'warn' ? '⚠' : '✗';
+
+    row.className = `scan-row ${cls}`;
+    row.querySelector('.sr-icon').textContent = icon;
+    row.querySelector('.sr-msg').textContent  = result.msg;
+    row.querySelector('.sr-msg').style.color  = '';
+
+    // Update sidebar dot
+    const dot = document.getElementById(`dot-${provider.id}`);
+    if (dot) dot.className = `svc-status ${cls}`;
+
+    if (i < detected.length - 1) await new Promise(r => setTimeout(r, 500)); // [P7]
+  }
+
+  btn.classList.remove('loading');
+  btn.disabled = false;
+  hint.textContent = `${detected.length} service(s) validated`;
+});
+
+// ── Breadcrumb init ──────────────────────────────────────────
+document.querySelector('.breadcrumb').innerHTML =
+  `anansikey / validate / <span>select a service</span>`;
+</script>
+</body>
+</html>
