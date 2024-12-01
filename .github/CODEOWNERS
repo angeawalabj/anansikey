@@ -1,0 +1,36 @@
+# CODEOWNERS
+# Automatically requests review from these owners on every PR touching listed paths.
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# ── Security-critical: adapters and request() function ────────
+# Any change here could allow credential exfiltration.
+# Requires maintainer review.
+packages/core/adapters/          @anansikey/maintainers
+packages/core/results/           @anansikey/maintainers
+packages/core/index.js           @anansikey/maintainers
+scripts/sast.js                  @anansikey/maintainers
+
+# ── CLI core ──────────────────────────────────────────────────
+packages/cli/index.js            @anansikey/maintainers
+packages/cli/secret-managers/    @anansikey/maintainers
+
+# ── GitHub Action ─────────────────────────────────────────────
+# Runs in privileged CI context — must be reviewed carefully.
+packages/action/                 @anansikey/maintainers
+.github/workflows/               @anansikey/maintainers
+
+# ── Security and legal ────────────────────────────────────────
+SECURITY.md                      @anansikey/maintainers
+LICENSE                          @anansikey/maintainers
+
+# ── Providers — open to contributors ─────────────────────────
+# New providers welcome — reviewed by contributors or maintainers.
+packages/core/providers/         @anansikey/contributors @anansikey/maintainers
+
+# ── Chaos suite ───────────────────────────────────────────────
+packages/chaos/                  @anansikey/contributors @anansikey/maintainers
+
+# ── Documentation ─────────────────────────────────────────────
+*.md                             @anansikey/contributors @anansikey/maintainers
+packages/web/index.html          @anansikey/contributors @anansikey/maintainers
+packages/vscode/                 @anansikey/contributors @anansikey/maintainers

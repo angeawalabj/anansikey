@@ -1,0 +1,14 @@
+{
+  "name": "anansikey-monorepo",
+  "private": true,
+  "type": "module",
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "test":     "node packages/chaos/runner.js",
+    "lint":     "node scripts/sast.js",
+    "check":    "node scripts/sast.js && node packages/chaos/runner.js",
+    "build:web": "cp packages/web/index.html dist/index.html",
+    "scaffold":  "node packages/cli/index.js scaffold"
+  },
+  "engines": { "node": ">=18.0.0" }
+}

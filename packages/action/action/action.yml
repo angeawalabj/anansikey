@@ -1,0 +1,117 @@
+name: 'Anansikey — Validate API Credentials'
+description: >
+  Validate API keys, tokens and credentials before deployment.
+  Supports .env files and secret managers (Vault, AWS SM, Doppler, Infisical).
+  Zero-Knowledge: credentials never reach Anansikey servers.
+
+author: 'Anansikey'
+
+branding:
+  icon:  'shield'
+  color: 'blue'
+
+# ── Inputs ────────────────────────────────────────────────────
+inputs:
+
+  # Source: .env file OR secret manager (one of these is required)
+  env_file:
+    description: >
+      Path to the .env file to validate.
+      Default: .env in workspace root.
+    required: false
+    default: '.env'
+
+  source:
+    description: >
+      Secret manager source. One of: vault, aws, doppler, infisical.
+      When set, env_file is ignored.
+    required: false
+    default: ''
+
+  # HashiCorp Vault
+  vault_addr:
+    description: 'Vault server URL (e.g. https://vault.company.com:8200)'
+    required: false
+    default: ''
+  vault_token:
+    description: 'Vault token (VAULT_TOKEN)'
+    required: false
+    default: ''
+  vault_path:
+    description: 'Vault secret path (e.g. vault://secret/data/myapp)'
+    required: false
+    default: ''
+
+  # AWS Secrets Manager
+  aws_secret_arn:
+    description: 'ARN or name of the AWS secret'
+    required: false
+    default: ''
+  aws_region:
+    description: 'AWS region (e.g. us-east-1)'
+    required: false
+    default: ''
+
+  # Doppler
+  doppler_token:
+    description: 'Doppler service token (DOPPLER_TOKEN)'
+    required: false
+    default: ''
+  doppler_project:
+    description: 'Doppler project name'
+    required: false
+    default: ''
+  doppler_config:
+    description: 'Doppler config name (e.g. production)'
+    required: false
+    default: ''
+
+  # Infisical
+  infisical_token:
+    description: 'Infisical machine identity token'
+    required: false
+    default: ''
+  infisical_project_id:
+    description: 'Infisical project UUID'
+    required: false
+    default: ''
+  infisical_environment:
+    description: 'Infisical environment slug (e.g. production)'
+    required: false
+    default: 'production'
+  infisical_host:
+    description: 'Infisical host for self-hosted instances'
+    required: false
+    default: 'https://app.infisical.com'
+
+  # Behaviour
+  fail_on_warning:
+    description: 'Fail the action if any credential has a warning (e.g. low balance, expiring)'
+    required: false
+    default: 'false'
+
+  json_output:
+    description: 'Output results as JSON (available in outputs.results)'
+    required: false
+    default: 'false'
+
+# ── Outputs ───────────────────────────────────────────────────
+outputs:
+  passed:
+    description: 'Number of credentials that passed validation'
+  failed:
+    description: 'Number of credentials that failed validation'
+  warned:
+    description: 'Number of credentials with warnings'
+  results:
+    description: 'JSON array of validation results (when json_output=true)'
+  exit_code:
+    description: >
+      Semantic exit code:
+      0=all valid, 1=auth failed, 2=network error,
+      3=format error, 4=rate limited, 5=warning only, 9=internal error
+
+# ── Runtime ───────────────────────────────────────────────────
+runs:
+  using: 'node20'
+  main: 'entrypoint.js'

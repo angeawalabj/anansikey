@@ -1,0 +1,15 @@
+{
+  "name": "@anansikey/core",
+  "version": "2.0.0",
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".":           "./index.js",
+    "./adapters/node":    "./adapters/node.js",
+    "./adapters/browser": "./adapters/browser.js",
+    "./results":   "./results/index.js",
+    "./mask":      "./results/mask.js"
+  },
+  "description": "Provider registry and adapters — zero dependencies",
+  "license": "MIT"
+}

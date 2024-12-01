@@ -1,0 +1,11 @@
+{
+  "name": "@anansikey/action",
+  "version": "2.0.0",
+  "type": "module",
+  "description": "GitHub Action — validate API credentials in CI/CD pipelines",
+  "license": "MIT",
+  "dependencies": {
+    "@actions/core": "^1.10.0",
+    "@anansikey/core": "*"
+  }
+}

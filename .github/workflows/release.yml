@@ -1,0 +1,151 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  # ── 1. Verify version tag matches all package.json ────────────
+  verify:
+    name: Verify Versions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check version consistency
+        run: |
+          TAG="${GITHUB_REF#refs/tags/v}"
+          for PKG in packages/core packages/cli packages/action packages/vscode; do
+            VERSION=$(node -e "console.log(require('./$PKG/package.json').version)")
+            if [ "$VERSION" != "$TAG" ]; then
+              echo "✗ $PKG/package.json has version $VERSION, tag is v$TAG"
+              exit 1
+            fi
+            echo "✓ $PKG: v$VERSION"
+          done
+
+  # ── 2. Full test suite before release ────────────────────────
+  test:
+    name: Full Test Suite
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: node scripts/sast.js
+      - run: node packages/chaos/runner.js
+
+  # ── 3. Publish npm (CLI) ──────────────────────────────────────
+  publish-npm:
+    name: Publish to npm
+    needs: test
+    runs-on: ubuntu-latest
+    environment: npm-publish
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Publish CLI
+        run: npm publish --access public
+        working-directory: packages/cli
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish core
+        run: npm publish --access public
+        working-directory: packages/core
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # ── 4. Publish VS Code extension ─────────────────────────────
+  publish-vscode:
+    name: Publish VS Code Extension
+    needs: test
+    runs-on: ubuntu-latest
+    environment: vscode-publish
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+
+      - name: Install vsce
+        run: npm install -g @vscode/vsce
+
+      - name: Package extension
+        run: vsce package
+        working-directory: packages/vscode
+
+      - name: Publish to marketplace
+        run: vsce publish
+        working-directory: packages/vscode
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+
+  # ── 5. Create GitHub Release ──────────────────────────────────
+  release:
+    name: GitHub Release
+    needs: [publish-npm, publish-vscode]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/}"
+          PREV=$(git tag --sort=-version:refname | sed -n '2p')
+          if [ -n "$PREV" ]; then
+            COMMITS=$(git log ${PREV}..HEAD --pretty=format:"- %s (%h)" --no-merges)
+          else
+            COMMITS=$(git log --pretty=format:"- %s (%h)" --no-merges | head -20)
+          fi
+          {
+            echo "CHANGELOG<<EOF"
+            echo "## What's Changed in $VERSION"
+            echo ""
+            echo "$COMMITS"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "🕷 Anansikey ${{ github.ref_name }}"
+          body: |
+            ${{ steps.changelog.outputs.CHANGELOG }}
+
+            ---
+
+            ### Install
+
+            ```bash
+            npm install -g anansikey@${{ github.ref_name }}
+            ```
+
+            ### GitHub Actions
+
+            ```yaml
+            - uses: anansikey/validate-action@${{ github.ref_name }}
+              with:
+                env_file: .env.production
+            ```
+
+            ### VS Code
+
+            Search **"Anansikey"** in the Extensions marketplace.
+
+            ---
+
+            🔒 **Zero-Knowledge**: credentials never reach Anansikey servers.
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') || contains(github.ref_name, '-rc') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
