@@ -123,7 +123,7 @@ Use the PR template and fill the checklist completely.
 ## Fixing a Bug
 
 ```bash
-git clone https://github.com/anansikey/anansikey
+git clone https://github.com/angeawalabj/anansikey
 cd anansikey
 
 # Make your fix
@@ -229,6 +229,6 @@ Specifically:
 
 ## Questions
 
-- GitHub Issues: [github.com/anansikey/anansikey/issues](https://github.com/anansikey/anansikey/issues)
+- GitHub Issues: [github.com/angeawalabj/anansikey/issues](https://github.com/angeawalabj/anansikey/issues)
 - Label `good first issue` for first-time contributors
 - Label `help wanted` for providers that need implementation

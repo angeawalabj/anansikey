@@ -147,5 +147,5 @@ export function netErr(e) {
 export function malformed(status, raw) {
   return fail(ErrorCode.MALFORMED_RESPONSE,
     `API returned unparseable response (HTTP ${status})`,
-    'The provider API may have changed — open an issue at github.com/anansikey/anansikey');
+    'The provider API may have changed — open an issue at github.com/angeawalabj/anansikey');
 }

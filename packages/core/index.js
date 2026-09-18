@@ -166,6 +166,6 @@ export async function runProvider(provider, creds, httpFn) {
   }
 }
 
-export { ok, fail, warn, netErr, malformed, ErrorCode, ExitCode, exitCodeFor }
+export { ok, fail, warn, netErr, malformed, ResultType, ErrorCode, ExitCode, exitCodeFor }
   from './results/index.js';
 export { maskSecret, sanitizeCreds } from './results/mask.js';

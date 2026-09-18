@@ -225,7 +225,7 @@ async function run() {
           { data: '[P1] No credentials transmitted to Anansikey servers', header: false },
         ],
       ])
-      .addLink('Anansikey documentation', 'https://anansikey.dev')
+      .addLink('Anansikey documentation', 'https://github.com/angeawalabj/anansikey')
       .write();
   } catch {
     // Summary API may not be available in all environments

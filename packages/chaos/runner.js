@@ -65,7 +65,7 @@ async function main() {
   const { execSync } = await import('child_process');
   try {
     execSync('node scripts/sast.js', {
-      cwd: new URL('../../..', import.meta.url).pathname,
+      cwd: new URL('../..', import.meta.url).pathname,
       stdio: 'inherit',
     });
   } catch {

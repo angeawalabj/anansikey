@@ -245,7 +245,7 @@ function cmdList() {
   }
 }
 
-function cmdScaffold(args) {
+async function cmdScaffold(args) {
   const nameArg = args.find(a => a.startsWith('--name='));
   if (!nameArg) {
     err(c('red', '\n  ✗ Usage: anansikey scaffold --name=ServiceName\n'));

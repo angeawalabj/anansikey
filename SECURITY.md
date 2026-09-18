@@ -4,10 +4,9 @@
 
 **Do not open a public GitHub issue for security vulnerabilities.**
 
-If you discover a security issue in Anansikey, please report it via one of:
+If you discover a security issue in Anansikey, please report it via:
 
-- **GitHub Security Advisories**: [github.com/anansikey/anansikey/security/advisories/new](https://github.com/anansikey/anansikey/security/advisories/new)
-- **Email**: security@anansikey.dev
+- **GitHub Security Advisories**: [github.com/angeawalabj/anansikey/security/advisories/new](https://github.com/angeawalabj/anansikey/security/advisories/new)
 
 We commit to:
 - Acknowledging your report within **48 hours**
@@ -58,12 +57,14 @@ A malicious publish could replace the `anansikey` package with one that exfiltra
 
 ### 3. Compromised Web App CDN
 
-If `anansikey.dev` is compromised, the web app could be replaced with one that exfiltrates keys.
+The web app is not deployed yet (no hosted CDN exists today), but the threat still applies to
+any future hosted version: if the CDN serving it were compromised, the web app could be
+replaced with one that exfiltrates keys.
 
 **Defenses:**
 - Web app is a single static HTML file — easy to audit, no server-side logic
 - Users can run it locally: `open packages/web/index.html`
-- Users can verify P1 in DevTools → Network tab before trusting the hosted version
+- Once a hosted version exists, users can verify P1 in DevTools → Network tab before trusting it
 
 ### 4. Credentials in Memory
 
@@ -91,16 +92,16 @@ Your machine → Provider's API (e.g. api.stripe.com)
 
 CLI:
 ```bash
-strace -e network anansikey check stripe --secret_key=sk_test_xxx 2>&1 | grep connect
+strace -e network node packages/cli/index.js check stripe --secret_key=sk_test_xxx 2>&1 | grep connect
 # You will see: api.stripe.com:443
-# You will NOT see: anansikey.dev or any Anansikey domain
+# You will NOT see any Anansikey-controlled domain
 ```
 
 Web app:
 ```
 Open DevTools → Network tab → Run a validation
 You will see: api.stripe.com
-You will NOT see: anansikey.dev
+You will NOT see any Anansikey-controlled domain
 ```
 
 ---

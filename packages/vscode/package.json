@@ -8,12 +8,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/anansikey/anansikey"
+    "url": "https://github.com/angeawalabj/anansikey"
   },
   "bugs": {
-    "url": "https://github.com/anansikey/anansikey/issues"
+    "url": "https://github.com/angeawalabj/anansikey/issues"
   },
-  "homepage": "https://anansikey.dev",
+  "homepage": "https://github.com/angeawalabj/anansikey",
   "keywords": [
     "api", "api-key", "credentials", "validation", "security",
     "dotenv", "env", "stripe", "openai", "github", "devops", "devsecops"

@@ -6,13 +6,13 @@
 
 **Outsmart API Key Errors. Validate locally, deploy confidently.**
 
-[![npm version](https://img.shields.io/npm/v/anansikey?color=3d8ef0&style=flat-square)](https://www.npmjs.com/package/anansikey)
-[![npm downloads](https://img.shields.io/npm/dm/anansikey?color=3d8ef0&style=flat-square)](https://www.npmjs.com/package/anansikey)
-[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/i/anansikey.anansikey?color=3d8ef0&style=flat-square&label=vscode)](https://marketplace.visualstudio.com/items?itemName=anansikey.anansikey)
+[![CI](https://github.com/angeawalabj/anansikey/actions/workflows/ci.yml/badge.svg)](https://github.com/angeawalabj/anansikey/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-3d8ef0?style=flat-square)](./LICENSE)
 [![Zero dependencies](https://img.shields.io/badge/deps-0-00e87a?style=flat-square)](./packages/core/package.json)
 
-[Web App](https://anansikey.dev) · [VS Code Extension](https://marketplace.visualstudio.com/items?itemName=anansikey.anansikey) · [Documentation](https://github.com/anansikey/anansikey/wiki) · [Contributing](#contributing)
+[Contributing](#contributing)
+
+> Not yet published to npm, the VS Code Marketplace or GitHub Marketplace — everything below runs from source (`git clone` + `node`).
 
 </div>
 
@@ -34,18 +34,18 @@ Named after **Anansi**, the West African spider deity of wisdom from Akan mythol
 ## Quick Start
 
 ```bash
-# Install globally
-npm install -g anansikey
+git clone https://github.com/angeawalabj/anansikey.git
+cd anansikey
 
 # Validate a single key
-anansikey check stripe --secret_key=sk_test_xxx
+node packages/cli/index.js check stripe --secret_key=sk_test_xxx
 
 # Scan an entire .env file
-anansikey scan .env.production
+node packages/cli/index.js scan .env.production
 
 # Pull directly from a secret manager and validate
-VAULT_TOKEN=hvs.xxx anansikey scan --from-vault=vault://secret/data/myapp
-DOPPLER_TOKEN=dp.st.xxx anansikey scan --from-doppler --project=myapp --config=production
+VAULT_TOKEN=hvs.xxx node packages/cli/index.js scan --from-vault=vault://secret/data/myapp
+DOPPLER_TOKEN=dp.st.xxx node packages/cli/index.js scan --from-doppler --project=myapp --config=production
 ```
 
 No configuration. No account. No data leaving your machine.
@@ -81,29 +81,31 @@ Pull credentials directly from your infrastructure — no copy-paste, no `.env` 
 
 ```bash
 # HashiCorp Vault (KV v1 and v2)
-anansikey scan --from-vault=vault://secret/data/production
+node packages/cli/index.js scan --from-vault=vault://secret/data/production
 
 # AWS Secrets Manager
-anansikey scan --from-aws=arn:aws:secretsmanager:us-east-1:123:secret:myapp
+node packages/cli/index.js scan --from-aws=arn:aws:secretsmanager:us-east-1:123:secret:myapp
 
 # Doppler
-anansikey scan --from-doppler --project=myapp --config=production
+node packages/cli/index.js scan --from-doppler --project=myapp --config=production
 
 # Infisical (cloud or self-hosted)
-anansikey scan --from-infisical --project=abc-123 --env=production
+node packages/cli/index.js scan --from-infisical --project=abc-123 --env=production
 
 # 1Password
-anansikey scan --from-1password --vault=Dev --item="Stripe Production"
+node packages/cli/index.js scan --from-1password --vault=Dev --item="Stripe Production"
 ```
 
 ### Multiple Interfaces
 
-| Interface | Install | Use case |
+All four run from source in this repo — none are published yet.
+
+| Interface | Run it | Use case |
 |---|---|---|
-| **CLI** | `npm install -g anansikey` | Terminal, CI/CD pipelines |
-| **Web App** | [anansikey.dev](https://anansikey.dev) | Quick checks, no install |
-| **VS Code** | [Marketplace](https://marketplace.visualstudio.com/items?itemName=anansikey.anansikey) | Inline decorations in `.env` files |
-| **GitHub Action** | `uses: anansikey/validate-action@v1` | Automated pre-deploy gates |
+| **CLI** | `node packages/cli/index.js <command>` | Terminal, CI/CD pipelines |
+| **Web App** | open `packages/web/index.html` in a browser | Quick checks, no install |
+| **VS Code** | load `packages/vscode/` as an unpacked extension | Inline decorations in `.env` files |
+| **GitHub Action** | `uses: angeawalabj/anansikey/packages/action@main` | Automated pre-deploy gates |
 
 ### Semantic Exit Codes
 
@@ -140,12 +142,12 @@ These are not policies. They are architectural constraints enforced in code.
 
 ```bash
 # CLI: trace outbound connections
-strace -e network anansikey check stripe --secret_key=sk_test_xxx 2>&1 | grep connect
-# You will see: api.stripe.com — you will NOT see: anansikey.dev
+strace -e network node packages/cli/index.js check stripe --secret_key=sk_test_xxx 2>&1 | grep connect
+# You will see: api.stripe.com — you will NOT see any Anansikey-controlled domain
 
 # Web app: open DevTools → Network tab
 # Run a validation. You will see: api.stripe.com
-# You will NOT see: anansikey.dev or any Anansikey-controlled domain
+# You will NOT see any Anansikey-controlled domain
 ```
 
 ---
@@ -181,17 +183,19 @@ packages/core/providers/stripe.js
 
 ## GitHub Action
 
+Not published to GitHub Marketplace — reference the action directly from this repo:
+
 ```yaml
 # .github/workflows/deploy.yml
 
 - name: Validate API credentials
-  uses: anansikey/validate-action@v1
+  uses: angeawalabj/anansikey/packages/action@main
   with:
     env_file: .env.production
 
 # Or with a secret manager:
 - name: Validate from Vault
-  uses: anansikey/validate-action@v1
+  uses: angeawalabj/anansikey/packages/action@main
   with:
     source: vault
     vault_path: vault://secret/data/production
@@ -200,7 +204,7 @@ packages/core/providers/stripe.js
 
 # Or Doppler:
 - name: Validate from Doppler
-  uses: anansikey/validate-action@v1
+  uses: angeawalabj/anansikey/packages/action@main
   with:
     source: doppler
     doppler_project: myapp
@@ -212,7 +216,7 @@ packages/core/providers/stripe.js
 
 ```yaml
 - id: validate
-  uses: anansikey/validate-action@v1
+  uses: angeawalabj/anansikey/packages/action@main
   with: { env_file: .env.production }
 
 - name: Deploy only if all valid
@@ -225,15 +229,13 @@ packages/core/providers/stripe.js
 ## CLI Reference
 
 ```bash
-anansikey check   <service> [--field=value ...] [--silent] [--no-color] [--json]
-anansikey scan    [file]    [--from-vault=...] [--from-doppler] [--silent] [--json]
-anansikey fetch   <vault|aws|doppler|infisical|1password> [path] [--scan]
-anansikey list
-anansikey scaffold --name=ServiceName
-anansikey help
+node packages/cli/index.js check   <service> [--field=value ...] [--silent] [--no-color] [--json]
+node packages/cli/index.js scan    [file]    [--from-vault=...] [--from-doppler] [--silent] [--json]
+node packages/cli/index.js fetch   <vault|aws|doppler|infisical|1password> [path] [--scan]
+node packages/cli/index.js list
+node packages/cli/index.js scaffold --name=ServiceName
+node packages/cli/index.js help
 ```
-
-Full reference: [wiki/CLI-Reference](https://github.com/anansikey/anansikey/wiki/CLI-Reference)
 
 ---
 
@@ -245,7 +247,7 @@ You don't need to understand the full codebase. You only need to know the API yo
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/anansikey/anansikey
+git clone https://github.com/angeawalabj/anansikey
 cd anansikey
 
 # 2. Generate a scaffold
@@ -270,7 +272,7 @@ partial JSON, empty body, CORS block.
 
 **A provider that crashes on a 503 will crash in production at 3am.**
 
-See full guide: [CONTRIBUTING.md](./CONTRIBUTING.md) · [wiki/Adding-a-Provider](https://github.com/anansikey/anansikey/wiki/Adding-a-Provider)
+See full guide: [CONTRIBUTING.md](./CONTRIBUTING.md)
 
 ---
 

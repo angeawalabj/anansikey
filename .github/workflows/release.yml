@@ -126,21 +126,25 @@ jobs:
 
             ### Install
 
+            Not published to npm yet — run from source:
+
             ```bash
-            npm install -g anansikey@${{ github.ref_name }}
+            git clone --branch ${{ github.ref_name }} https://github.com/angeawalabj/anansikey.git
+            cd anansikey
+            node packages/cli/index.js help
             ```
 
             ### GitHub Actions
 
             ```yaml
-            - uses: anansikey/validate-action@${{ github.ref_name }}
+            - uses: angeawalabj/anansikey/packages/action@${{ github.ref_name }}
               with:
                 env_file: .env.production
             ```
 
             ### VS Code
 
-            Search **"Anansikey"** in the Extensions marketplace.
+            Not published to the Marketplace yet — load `packages/vscode/` as an unpacked extension.
 
             ---
 
