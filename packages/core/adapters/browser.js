@@ -1,12 +1,12 @@
 /**
  * @anansikey/core — Browser HTTP adapter
  *
- * Same interface as node.js adapter — providers don't know which runs.
- * Used by anansikey.html (web app) — no Node.js, no npm.
+ * Same interface as adapters/node.js — providers don't know which runs.
+ * Used by the web app. No Node.js, no npm at runtime.
  *
  * Enforces:
  *   [P8] User-Agent via custom header (best-effort — browsers may block it)
- *   [P1] Requests go directly to provider — no Anansikey server involved
+ *   [P1] Requests go directly to the provider — no Anansikey server involved
  *   10s timeout via AbortController
  */
 
@@ -33,7 +33,6 @@ export async function browserRequest(descriptor) {
       method,
       signal: controller.signal,
       headers: {
-        // Note: browsers block custom User-Agent — this is best-effort [P8]
         'X-Requested-By': UA,
         'Accept':         'application/json',
         'Content-Type':   'application/json',
@@ -53,16 +52,15 @@ export async function browserRequest(descriptor) {
     return { status: response.status, body: parsed, raw };
 
   } catch (e) {
-    if (e.name === 'AbortError') throw new Error('TIMEOUT');
+    if (e.name === 'AbortError') throw new Error('TIMEOUT', { cause: e });
     if (e.message?.includes('CORS') || e.message?.includes('cross-origin'))
-      throw new Error('CORS');
+      throw new Error('CORS', { cause: e });
     throw e;
   } finally {
     clearTimeout(timer);
   }
 }
 
-// Chaos-injectable — same pattern as node adapter
 let _adapter = browserRequest;
 export function setAdapter(fn) { _adapter = fn; }
 export function resetAdapter()  { _adapter = browserRequest; }

@@ -1,0 +1,29 @@
+packages:
+  - "packages/*"
+
+allowBuilds:
+  '@vscode/vsce-sign': true
+  esbuild: true
+  keytar: true
+
+# Catalog = source unique de vérité pour les versions partagées entre packages.
+# Un package référence "catalog:" au lieu d'un numéro en dur -> zéro dérive
+# entre cli/action/vscode quand on bump une dépendance commune.
+catalog:
+  "@actions/core": ^3.0.1
+
+# Politique supply-chain (pnpm >= 10.x) :
+# - minimumReleaseAge : refuse d'installer un package publié il y a moins de
+#   24h (fenêtre classique d'un package compromis avant détection/retrait).
+# - trustPolicy no-downgrade : refuse qu'un package régresse en confiance
+#   (ex: perd sa provenance signée) par rapport à une release précédente.
+minimumReleaseAge: 1440
+trustPolicy: no-downgrade
+
+# Exclusion ciblée : semver@5.7.2 (transitif via parse-semver <- @vscode/vsce,
+# devDependency de packages/vscode uniquement) déclenche un trust-downgrade
+# car cette release n'a pas d'attestation de provenance rétroactive. Vérifié :
+# maintainers npm officiels (npm-cli-ops, fritzy, gar, lukekarrys) — c'est le
+# semver canonique utilisé par npm lui-même, pas une prise de contrôle.
+trustPolicyExclude:
+  - "semver@5.7.2"

@@ -2,13 +2,30 @@
   "name": "anansikey-monorepo",
   "private": true,
   "type": "module",
-  "workspaces": ["packages/*"],
+  "version": "2.0.0",
+  "description": "Anansikey — validate API credentials locally. Monorepo root (not published).",
+  "packageManager": "pnpm@11.9.0",
+  "engines": { "node": ">=24.0.0" },
   "scripts": {
-    "test":     "node packages/chaos/runner.js",
-    "lint":     "node scripts/sast.js",
-    "check":    "node scripts/sast.js && node packages/chaos/runner.js",
-    "build:web": "cp packages/web/index.html dist/index.html",
-    "scaffold":  "node packages/cli/index.js scaffold"
+    "test":                    "pnpm run test:unit && pnpm run chaos",
+    "test:unit":               "node --test \"packages/core/providers/__tests__/*.test.js\"",
+    "chaos":                   "node packages/chaos/runner.js",
+    "chaos:stripe":            "node packages/chaos/scenarios/stripe.chaos.js",
+    "lint":                    "eslint .",
+    "sast":                    "node scripts/sast.js",
+    "audit":                   "pnpm audit --audit-level=high",
+    "check":                   "pnpm run sast && pnpm run chaos",
+    "check:core-zero-deps":    "node scripts/check-core-zero-deps.js",
+    "build":                   "pnpm -r --if-present run build",
+    "build:web":               "pnpm --filter @anansikey/web run build",
+    "verify:web-bundle-purity": "node scripts/check-web-bundle-purity.js",
+    "verify":                  "pnpm run lint && pnpm run check:core-zero-deps && pnpm run sast && pnpm run audit && pnpm run test && pnpm run build:web && pnpm run verify:web-bundle-purity",
+    "scaffold":                "node packages/cli/index.js scaffold"
   },
-  "engines": { "node": ">=18.0.0" }
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.6.0",
+    "eslint-plugin-security": "^4.0.0",
+    "globals": "^15.0.0"
+  }
 }

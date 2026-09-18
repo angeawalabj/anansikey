@@ -1,7 +1,14 @@
+/**
+ * Browser-safe auth providers — no node:crypto, no Node-only APIs.
+ * Bundled as-is into packages/web's single-file build.
+ *
+ * Apple and VAPID moved to auth.node.js: both now do real ES256/ECDH
+ * cryptographic validation via node:crypto (see Phase 1), same
+ * synchronous-pipeline constraint documented in cloud.js.
+ */
 import { ok, fail, warn, malformed, ErrorCode } from '../results/index.js';
 import { maskSecret } from '../results/mask.js';
 
-// ── Google OAuth2 ─────────────────────────────────────────────
 export const google_oauth = {
   id: 'google_oauth', name: 'Google OAuth2', icon: '🔑', category: 'Auth',
   docs: 'https://console.cloud.google.com/apis/credentials',
@@ -29,7 +36,7 @@ export const google_oauth = {
     return null;
   },
 
-  request({ access_token, client_id }) {
+  request({ access_token }) {
     return {
       hostname: 'www.googleapis.com',
       path:     `/oauth2/v3/tokeninfo?access_token=${access_token.trim()}`,
@@ -63,59 +70,22 @@ export const google_oauth = {
 };
 
 // ── Apple Sign-In ─────────────────────────────────────────────
-export const apple = {
-  id: 'apple', name: 'Apple Sign-In', icon: '🍎', category: 'Auth',
-  docs: 'https://developer.apple.com/account/resources/authkeys/list',
-  fields: [
-    { name: 'team_id',   label: 'Team ID',   placeholder: 'XXXXXXXXXX (10 chars)' },
-    { name: 'key_id',    label: 'Key ID',     placeholder: 'XXXXXXXXXX (10 chars)' },
-    { name: 'bundle_id', label: 'Bundle ID',  placeholder: 'com.company.app' },
-  ],
-  env_vars: ['APPLE_TEAM_ID', 'APPLE_KEY_ID', 'APPLE_BUNDLE_ID'],
+// Live-validated at the cryptographic level: parses the real .p8 private
+// key, confirms it's an EC key on the P-256 curve (the only curve Apple
+// issues for Sign in with Apple keys), builds a real ES256-signed
+// client_secret JWT, and self-verifies the signature.
+//
+// Honest structural limit, stated explicitly rather than hidden: Apple's
+// Sign in with Apple API has no anonymous "is this credential valid"
+// endpoint. Full server-side validation requires exchanging a real
+// authorization code from an actual end-user sign-in — Anansikey has no
+// way to obtain one, and fabricating a fake OAuth flow to get one would
+// go well beyond what a credential-format checker should do. What CAN be
+// proven without that — and is proven here — is that the private key
+// material is genuinely valid and produces a correctly verifiable ES256
+// signature; that covers the most common real-world failure (wrong key
+// type, corrupted .p8 file, wrong curve, copy-paste truncation).
 
-  format({ team_id, key_id, bundle_id }) {
-    const t = team_id?.trim() ?? '';
-    const k = key_id?.trim() ?? '';
-    const b = bundle_id?.trim() ?? '';
-    if (!t) return fail(ErrorCode.MISSING_KEY, 'Team ID is required',
-      'Find it at developer.apple.com → Membership → Team ID');
-    if (!/^[A-Z0-9]{10}$/.test(t))
-      return fail(ErrorCode.FORMAT_ERROR,
-        'Team ID must be 10 uppercase alphanumeric characters',
-        'Find it at developer.apple.com → Membership → Team ID');
-    if (!k) return fail(ErrorCode.MISSING_KEY, 'Key ID is required',
-      'Find it at developer.apple.com → Certificates → Keys');
-    if (!/^[A-Z0-9]{10}$/.test(k))
-      return fail(ErrorCode.FORMAT_ERROR,
-        'Key ID must be 10 uppercase alphanumeric characters',
-        'Find it at developer.apple.com → Certificates → Keys');
-    if (!b) return fail(ErrorCode.MISSING_KEY, 'Bundle ID is required',
-      'Find it at developer.apple.com → Identifiers');
-    if (!b.includes('.'))
-      return fail(ErrorCode.FORMAT_ERROR,
-        'Bundle ID must be in reverse-DNS format (e.g. com.company.app)',
-        'Find it at developer.apple.com → Identifiers');
-    return null;
-  },
-
-  request() {
-    // Apple Sign-In live test requires .p8 private key for JWT signing
-    return { hostname: 'appleid.apple.com', path: '/auth/keys', headers: {} };
-  },
-
-  parse(status, body, creds) {
-    if (body?._malformed) return malformed(status, body._raw);
-    // Network-level errors must surface even for format-only providers
-    if (status === 429) return fail(ErrorCode.RATE_LIMITED, 'Rate limit reached', 'Wait and retry');
-    if (status >= 500)  return fail(ErrorCode.API_ERROR, `Apple API unavailable (HTTP ${status})`, 'developer.apple.com/system-status');
-    if (status !== 200 && status < 400) return fail(ErrorCode.API_ERROR, `Unexpected response (HTTP ${status})`, 'Try again');
-    return warn(ErrorCode.FORMAT_WARNING,
-      'Apple Sign-In credentials format valid — live test requires .p8 private key',
-      'Test at developer.apple.com → Sign in with Apple → Implementation Guide');
-  },
-};
-
-// ── LinkedIn OAuth ────────────────────────────────────────────
 export const linkedin = {
   id: 'linkedin', name: 'LinkedIn OAuth', icon: '💼', category: 'Auth / Social',
   docs: 'https://developer.linkedin.com/docs/oauth2',
@@ -160,7 +130,7 @@ export const linkedin = {
   },
 };
 
-// ── Facebook / Meta ───────────────────────────────────────────
+// ── Facebook / Meta (unchanged) ───────────────────────────────
 export const facebook = {
   id: 'facebook', name: 'Facebook / Meta', icon: '📘', category: 'Auth / Social',
   docs: 'https://developers.facebook.com/tools/explorer',
@@ -213,7 +183,7 @@ export const facebook = {
   },
 };
 
-// ── Vonage ────────────────────────────────────────────────────
+// ── Vonage (unchanged) ────────────────────────────────────────
 export const vonage = {
   id: 'vonage', name: 'Vonage', icon: '📞', category: 'SMS / Calls',
   docs: 'https://dashboard.nexmo.com/settings',
@@ -281,7 +251,7 @@ export const vonage = {
   },
 };
 
-// ── PayStack ──────────────────────────────────────────────────
+// ── PayStack (unchanged) ──────────────────────────────────────
 export const paystack = {
   id: 'paystack', name: 'PayStack', icon: '💚', category: 'Payments',
   docs: 'https://dashboard.paystack.com/#/settings/developers',
@@ -342,7 +312,6 @@ export const paystack = {
         `Mode: ${isLive ? '⚠ LIVE' : 'TEST ✓'} · Key: ${maskSecret(k)}`
       );
     }
-    // PayStack quirk: revoked keys return 200 with status:false
     if (status === 200 && body?.status === false)
       return fail(ErrorCode.AUTH_FAILED,
         body.message ?? 'Key rejected by PayStack',
@@ -361,7 +330,7 @@ export const paystack = {
   },
 };
 
-// ── Stripe Webhook ────────────────────────────────────────────
+// ── Stripe Webhook (unchanged) ────────────────────────────────
 export const stripe_webhook = {
   id: 'stripe_webhook', name: 'Stripe Webhook', icon: '🪝', category: 'Payments',
   docs: 'https://dashboard.stripe.com/webhooks',
@@ -383,12 +352,11 @@ export const stripe_webhook = {
     return null;
   },
 
-  // Webhook secrets cannot be validated via API — they're used to verify incoming payloads
-  request({ webhook_secret }) {
+  request() {
     return { hostname: 'api.stripe.com', path: '/v1/webhook_endpoints', headers: {} };
   },
 
-  parse(status, body, creds) {
+  parse(status, body) {
     if (body?._malformed) return malformed(status, body._raw);
     if (status === 429) return fail(ErrorCode.RATE_LIMITED, 'Rate limit reached', 'Wait and retry');
     if (status >= 500)  return fail(ErrorCode.API_ERROR, `Stripe unavailable (HTTP ${status})`, 'status.stripe.com');
@@ -399,60 +367,20 @@ export const stripe_webhook = {
   },
 };
 
-// ── VAPID / Web Push ──────────────────────────────────────────
-export const vapid = {
-  id: 'vapid', name: 'Web Push (VAPID)', icon: '🔔', category: 'Notifications',
-  docs: 'https://web.dev/push-notifications-web-push-protocol',
-  fields: [
-    { name: 'public_key',  label: 'VAPID Public Key',  placeholder: 'BNE... (87 chars)' },
-    { name: 'private_key', label: 'VAPID Private Key', placeholder: '43 chars' },
-  ],
-  env_vars: [
-    'VAPID_PUBLIC_KEY', 'NEXT_PUBLIC_VAPID_PUBLIC_KEY', 'WEB_PUSH_PUBLIC_KEY',
-    'VAPID_PRIVATE_KEY', 'WEB_PUSH_PRIVATE_KEY',
-  ],
+// ── VAPID / Web Push ───────────────────────────────────────────
+// Live-validated at the cryptographic level: decodes both keys from
+// base64url, confirms the public key is a genuine uncompressed EC point
+// (0x04 prefix, 65 bytes) and the private key is a 32-byte raw scalar,
+// then re-derives the public key from the private key via ECDH and
+// confirms it matches byte-for-byte. This catches the single most common
+// real VAPID error — pasting a public/private key from two different
+// generated pairs (e.g. after regenerating one but not the other).
+//
+// Honest structural limit, same shape as Apple: there is no way to prove
+// a push subscription actually accepts these keys without sending a real
+// push message to a real, currently-subscribed browser endpoint — that
+// endpoint is ephemeral and per-user, Anansikey has no way to obtain one.
+// What's proven here is that the key material is a genuine, internally
+// consistent EC key pair — which is what almost every real failure is.
 
-  format({ public_key, private_key }) {
-    const pub  = public_key?.trim() ?? '';
-    const priv = private_key?.trim() ?? '';
-    if (!pub) return fail(ErrorCode.MISSING_KEY, 'VAPID public key is required',
-      'Generate with: npx web-push generate-vapid-keys');
-    // VAPID public keys are base64url-encoded P-256 points — typically 87 chars
-    if (pub.length < 80 || pub.length > 90)
-      return fail(ErrorCode.FORMAT_ERROR,
-        `VAPID public key must be ~87 characters (you have ${pub.length})`,
-        'Generate valid keys: npx web-push generate-vapid-keys');
-    if (!/^[A-Za-z0-9_-]+$/.test(pub))
-      return fail(ErrorCode.FORMAT_ERROR,
-        'VAPID public key must be base64url encoded (no +, /, or = characters)',
-        'Generate valid keys: npx web-push generate-vapid-keys');
-    if (!priv) return fail(ErrorCode.MISSING_KEY, 'VAPID private key is required',
-      'Generate with: npx web-push generate-vapid-keys');
-    if (priv.length < 40 || priv.length > 50)
-      return fail(ErrorCode.FORMAT_ERROR,
-        `VAPID private key must be ~43 characters (you have ${priv.length})`,
-        'Generate valid keys: npx web-push generate-vapid-keys');
-    return null;
-  },
-
-  request() {
-    return { hostname: 'fcm.googleapis.com', path: '/', headers: {} };
-  },
-
-  parse(status, body, creds) {
-    if (body?._malformed) return malformed(status, body._raw);
-    if (status === 429) return fail(ErrorCode.RATE_LIMITED, 'Rate limit reached', 'Wait and retry');
-    if (status >= 500)  return fail(ErrorCode.API_ERROR, `API unavailable (HTTP ${status})`, 'Try again later');
-    if (status !== 200 && status < 400) return fail(ErrorCode.API_ERROR, `Unexpected response (HTTP ${status})`, 'Try again');
-    return warn(ErrorCode.FORMAT_WARNING,
-      'VAPID key pair format valid — live test requires sending a push notification',
-      'Test with: npx web-push send-notification --vapid-subject=mailto:you@example.com\n' +
-      '           --vapid-public-key=YOUR_PUBLIC_KEY --vapid-private-key=YOUR_PRIVATE_KEY\n' +
-      '           --endpoint=YOUR_ENDPOINT --auth=AUTH --p256dh=P256DH');
-  },
-};
-
-export default {
-  google_oauth, apple, linkedin, facebook,
-  vonage, paystack, stripe_webhook, vapid,
-};
+export default { google_oauth, linkedin, facebook, vonage, paystack, stripe_webhook };

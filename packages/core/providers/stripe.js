@@ -6,12 +6,9 @@
  * Why safe [P2]: Read-only account info. No charge, no customer created.
  * Auth: Authorization: Bearer sk_test_... or sk_live_...
  *
- * This file has NO import of https, fetch, or any HTTP library.
- * The adapter is injected by the runtime (CLI, web, VS Code).
- * format() + request() + parse() — three pure functions.
+ * Browser-safe: no node:crypto, no Node-only APIs.
  */
-
-import { ok, fail, warn, netErr, malformed, ErrorCode } from '../results/index.js';
+import { ok, fail, warn, malformed, ErrorCode } from '../results/index.js';
 import { maskSecret } from '../results/mask.js';
 
 export default {
@@ -27,9 +24,6 @@ export default {
 
   env_vars: ['STRIPE_SECRET_KEY'],
 
-  // ── format() ─────────────────────────────────────────────
-  // Pure function. No network. Called before any HTTP request.
-  // Returns null if valid, or a typed result if not.
   format({ secret_key }) {
     const k = secret_key?.trim() ?? '';
 
@@ -38,7 +32,6 @@ export default {
       'Find it at dashboard.stripe.com → Developers → API Keys');
 
     if (!k.startsWith('sk_test_') && !k.startsWith('sk_live_')) {
-      // Catch publishable key used by mistake
       if (k.startsWith('pk_test_') || k.startsWith('pk_live_'))
         return fail(ErrorCode.FORMAT_ERROR,
           'This is a PUBLISHABLE key (pk_...) — Anansikey needs the SECRET key (sk_...)',
@@ -59,12 +52,9 @@ export default {
         'This is a LIVE key — validation will hit your production account',
         'Consider using a test key (sk_test_...) for validation. Proceeding anyway.');
 
-    return null; // valid
+    return null;
   },
 
-  // ── request() ────────────────────────────────────────────
-  // Returns a descriptor object. Never makes an HTTP call itself.
-  // The adapter (node/browser) executes the actual request.
   request({ secret_key }) {
     return {
       hostname: 'api.stripe.com',
@@ -73,13 +63,9 @@ export default {
     };
   },
 
-  // ── parse() ──────────────────────────────────────────────
-  // Interprets the HTTP response. Pure function.
-  // creds passed for masking in output — never logged raw.
   parse(status, body, creds) {
     const k = creds?.secret_key?.trim() ?? '';
 
-    // Chaos: guard against malformed responses
     if (body?._malformed)
       return malformed(status, body._raw);
 

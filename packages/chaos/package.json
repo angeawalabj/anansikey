@@ -1,0 +1,16 @@
+{
+  "name": "@anansikey/chaos",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Chaos-engineering test harness for @anansikey/core providers.",
+  "type": "module",
+  "scripts": {
+    "test": "node runner.js"
+  },
+  "dependencies": {
+    "@anansikey/core": "workspace:*"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "@anansikey/web",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Anansikey web app — validate API credentials in the browser. Built as a single static HTML file; no server, no build step for end users.",
+  "type": "module",
+  "scripts": {
+    "build": "node build.js",
+    "dev": "node build.js --watch"
+  },
+  "dependencies": {
+    "@anansikey/core": "workspace:*"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.1"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  }
+}

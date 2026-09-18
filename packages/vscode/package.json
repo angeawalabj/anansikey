@@ -1,5 +1,5 @@
 {
-  "name": "anansikey",
+  "name": "anansikey-vscode",
   "displayName": "Anansikey — API Key Validator",
   "description": "Validate API credentials directly in your editor. Zero-Knowledge: keys never leave your machine.",
   "version": "2.0.0",
@@ -19,8 +19,11 @@
     "dotenv", "env", "stripe", "openai", "github", "devops", "devsecops"
   ],
   "categories": ["Linters", "Other"],
-  "engines": { "vscode": "^1.80.0" },
+  "engines": { "vscode": "^1.90.0", "node": ">=24.0.0" },
   "main": "./src/extension.js",
+  "dependencies": {
+    "@anansikey/core": "workspace:*"
+  },
 
   "activationEvents": [
     "onLanguage:dotenv",
@@ -130,6 +133,7 @@
     "publish": "vsce publish"
   },
   "devDependencies": {
-    "@vscode/vsce": "^2.0.0"
+    "@vscode/vsce": "^2.0.0",
+    "@types/vscode": "^1.90.0"
   }
 }

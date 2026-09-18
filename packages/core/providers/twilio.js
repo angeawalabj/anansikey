@@ -39,7 +39,7 @@ export default {
   request({ account_sid, auth_token }) {
     const sid   = account_sid.trim();
     const token = auth_token.trim();
-    const creds = Buffer.from(`${sid}:${token}`).toString('base64');
+    const creds = btoa(`${sid}:${token}`);
     return {
       hostname: 'api.twilio.com',
       path:     `/2010-04-01/Accounts/${sid}.json`,

@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>anansikey — validate api credentials</title>
+<meta name="description" content="Validate API credentials locally. Keys never leave your browser.">
+<style>
+/* ── Reset ──────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 13px; }
+
+/* ── Variables ──────────────────────────────────────────── */
+:root {
+  --bg:        #060d1a;
+  --bg-raised: #0a1525;
+  --bg-input:  #081120;
+  --border:    #0d1f3a;
+  --border-hi: #1a3a6a;
+  --text:      #c8d8f0;
+  --text-dim:  #4a6080;
+  --text-mid:  #7a9abf;
+  --accent:    #3d8ef0;
+  --green:     #00e87a;
+  --red:       #ff4757;
+  --amber:     #ffd32a;
+  --mono:      'IBM Plex Mono', 'Fira Code', 'Cascadia Code', monospace;
+}
+
+/* ── Base ───────────────────────────────────────────────── */
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 1rem;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* ── Layout ─────────────────────────────────────────────── */
+.shell {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+header {
+  border-bottom: 1px solid var(--border);
+  padding: 18px 0 16px;
+  display: flex;
+  align-items: baseline;
+  gap: 20px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+}
+
+.logo-mark {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
+.logo-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+
+.logo-name span { color: var(--accent); }
+
+.header-meta {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-left: auto;
+}
+
+.header-meta a {
+  color: var(--text-dim);
+  text-decoration: none;
+  margin-left: 16px;
+}
+.header-meta a:hover { color: var(--text-mid); }
+
+/* ── Main two-column layout ─────────────────────────────── */
+.workspace {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 0;
+  min-height: calc(100vh - 62px);
+}
+
+/* ── Sidebar: service picker ────────────────────────────── */
+.sidebar {
+  border-right: 1px solid var(--border);
+  padding: 20px 0;
+  position: sticky;
+  top: 0;
+  height: calc(100vh - 62px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.sidebar-section {
+  margin-bottom: 6px;
+}
+
+.sidebar-category {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 10px 20px 4px;
+}
+
+.service-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 20px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-mid);
+  font-family: var(--mono);
+  font-size: 12px;
+  text-align: left;
+  transition: background 0.08s, color 0.08s;
+}
+
+.service-btn:hover {
+  background: var(--border);
+  color: var(--text);
+}
+
+.service-btn.active {
+  background: var(--bg-raised);
+  color: var(--accent);
+  border-right: 2px solid var(--accent);
+}
+
+.service-btn .svc-icon { font-size: 14px; width: 18px; text-align: center; }
+.service-btn .svc-name { flex: 1; }
+.service-btn .svc-status {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--border-hi);
+  flex-shrink: 0;
+}
+.service-btn .svc-status.ok     { background: var(--green); }
+.service-btn .svc-status.fail   { background: var(--red); }
+.service-btn .svc-status.warn   { background: var(--amber); }
+
+/* Node-only providers (aws, pusher, apple, vapid) are listed but not
+   runnable here — they need node:crypto. See packages/core/index.js. */
+.service-btn.disabled { opacity: 0.55; cursor: default; }
+.service-btn.disabled:hover { background: none; color: var(--text-mid); }
+.service-btn .svc-badge {
+  font-size: 9px;
+  color: var(--amber);
+  border: 1px solid var(--amber);
+  padding: 0 4px;
+  margin-left: auto;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ── Main area ──────────────────────────────────────────── */
+.main {
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* ── Service header ─────────────────────────────────────── */
+.service-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.service-icon-lg { font-size: 28px; line-height: 1; margin-top: 2px; }
+
+.service-title h2 {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 3px;
+}
+
+.service-title .docs-link {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-decoration: none;
+}
+.service-title .docs-link:hover { color: var(--accent); }
+
+/* ── Form fields ────────────────────────────────────────── */
+.fields { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+
+.field { display: flex; flex-direction: column; gap: 5px; }
+
+.field label {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.field input {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 9px 12px;
+  outline: none;
+  transition: border-color 0.12s;
+  width: 100%;
+}
+
+.field input:focus { border-color: var(--accent); }
+.field input::placeholder { color: var(--text-dim); }
+
+.field input.error  { border-color: var(--red); }
+.field input.ok     { border-color: var(--green); }
+.field input.warn   { border-color: var(--amber); }
+
+/* ── Submit button ──────────────────────────────────────── */
+.btn-validate {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 20px;
+  background: none;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+  letter-spacing: 0.03em;
+  user-select: none;
+}
+
+.btn-validate:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.btn-validate:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-validate .spinner {
+  width: 10px; height: 10px;
+  border: 1.5px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: none;
+}
+
+.btn-validate.loading .spinner { display: block; }
+.btn-validate.loading .btn-label { display: none; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Result panel ───────────────────────────────────────── */
+.result-panel {
+  margin-top: 20px;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  font-size: 12px;
+  display: none;
+}
+
+.result-panel.visible { display: block; }
+
+.result-bar {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+}
+
+.result-bar.ok   { border-left: 3px solid var(--green); }
+.result-bar.fail { border-left: 3px solid var(--red);   }
+.result-bar.warn { border-left: 3px solid var(--amber); }
+
+.result-icon { font-size: 13px; font-weight: 500; }
+.result-icon.ok   { color: var(--green); }
+.result-icon.fail { color: var(--red);   }
+.result-icon.warn { color: var(--amber); }
+
+.result-msg   { color: var(--text); flex: 1; }
+.result-code  { color: var(--text-dim); font-size: 10px; }
+
+.result-body {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.result-row {
+  display: flex;
+  gap: 10px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.result-row .rk { color: var(--text-dim); min-width: 70px; flex-shrink: 0; }
+.result-row .rv { color: var(--text); word-break: break-all; }
+.result-row .rv.dim { color: var(--text-mid); }
+.result-row .rv.fix { color: var(--amber); }
+
+/* ── P1 notice ──────────────────────────────────────────── */
+.p1-notice {
+  padding: 8px 14px;
+  border-top: 1px solid var(--border);
+  font-size: 10px;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── Scan .env panel ────────────────────────────────────── */
+.scan-panel { display: none; }
+.scan-panel.active { display: block; }
+
+.scan-area {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 12px;
+  width: 100%;
+  min-height: 160px;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.12s;
+  line-height: 1.7;
+}
+
+.scan-area:focus { border-color: var(--accent); }
+.scan-area::placeholder { color: var(--text-dim); }
+
+.scan-results {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.scan-row {
+  display: grid;
+  grid-template-columns: 20px 140px 1fr auto;
+  gap: 10px;
+  align-items: baseline;
+  font-size: 11px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+}
+
+.scan-row .sr-icon { text-align: center; }
+.scan-row .sr-name { color: var(--text-mid); }
+.scan-row .sr-msg  { color: var(--text); }
+.scan-row .sr-key  { color: var(--text-dim); text-align: right; font-size: 10px; }
+
+.scan-row.ok   { border-left: 2px solid var(--green); }
+.scan-row.fail { border-left: 2px solid var(--red);   }
+.scan-row.warn { border-left: 2px solid var(--amber); }
+
+/* ── Tab switcher ───────────────────────────────────────── */
+.tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+}
+
+.tab-btn {
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 11px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: -1px;
+  transition: color 0.1s;
+}
+
+.tab-btn.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.tab-btn:hover:not(.active) { color: var(--text-mid); }
+
+/* ── Principles sidebar ─────────────────────────────────── */
+.principles {
+  border-top: 1px solid var(--border);
+  padding: 16px 20px 0;
+  margin-top: 20px;
+}
+
+.principles p {
+  font-size: 10px;
+  color: var(--text-dim);
+  line-height: 1.8;
+  margin-bottom: 4px;
+}
+
+.principles p strong {
+  color: var(--text-mid);
+  font-weight: 400;
+}
+
+/* ── Welcome state ──────────────────────────────────────── */
+.welcome {
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 2;
+  padding: 20px 0;
+}
+
+.welcome .cmd {
+  color: var(--accent);
+  display: block;
+  margin-top: 6px;
+}
+
+/* ── Node-only provider notice ──────────────────────────── */
+.node-only-notice {
+  border: 1px solid var(--amber);
+  padding: 20px;
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+.node-only-notice h2 {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  margin: 8px 0;
+}
+
+.node-only-notice .dim {
+  color: var(--text-dim);
+  font-size: 11px;
+  margin-top: 10px;
+}
+
+.node-only-notice code { color: var(--accent); }
+
+/* ── Scrollbar ──────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-hi); }
+
+/* ── Responsive ─────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .workspace { grid-template-columns: 1fr; }
+  .sidebar {
+    height: auto;
+    position: static;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 12px 0;
+  }
+  .sidebar-section { display: inline-flex; white-space: nowrap; }
+  .sidebar-category { display: none; }
+  .service-btn { padding: 6px 12px; }
+}
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+<!-- ── Header ───────────────────────────────────────────── -->
+<header>
+  <a class="logo" href="/">
+    <!-- Inline SVG logo: hexagon + key + spider legs -->
+    <svg class="logo-mark" viewBox="0 0 40 40" fill="none">
+      <!-- spider legs -->
+      <line x1="20" y1="3"  x2="13" y2="0"  stroke="#3d8ef0" stroke-width="0.8" stroke-linecap="round" opacity=".5"/>
+      <line x1="20" y1="3"  x2="27" y2="0"  stroke="#3d8ef0" stroke-width="0.8" stroke-linecap="round" opacity=".5"/>
+      <line x1="35" y1="12" x2="40" y2="8"  stroke="#3d8ef0" stroke-width="0.8" stroke-linecap="round" opacity=".5"/>
+      <line x1="35" y1="28" x2="40" y2="32" stroke="#3d8ef0" stroke-width="0.8" stroke-linecap="round" opacity=".5"/>
+      <line x1="20" y1="37" x2="27" y2="40" stroke="#3d8ef0" stroke-width="0.8" stroke-linecap="round" opacity=".5"/>
+      <line x1="20" y1="37" x2="13" y2="40" stroke="#3d8ef0" stroke-width="0.8" stroke-linecap="round" opacity=".5"/>
+      <line x1="5"  y1="28" x2="0"  y2="32" stroke="#3d8ef0" stroke-width="0.8" stroke-linecap="round" opacity=".5"/>
+      <line x1="5"  y1="12" x2="0"  y2="8"  stroke="#3d8ef0" stroke-width="0.8" stroke-linecap="round" opacity=".5"/>
+      <!-- hex -->
+      <polygon points="20,3 35,12 35,28 20,37 5,28 5,12" fill="#080f1e" stroke="#3d8ef0" stroke-width="1.2"/>
+      <!-- key head -->
+      <circle cx="20" cy="17" r="5.5" fill="none" stroke="#3d8ef0" stroke-width="1.8"/>
+      <circle cx="20" cy="17" r="2"   fill="#080f1e"/>
+      <!-- key shaft -->
+      <rect x="18.5" y="22" width="3" height="9" rx="1" fill="#3d8ef0"/>
+      <!-- key teeth -->
+      <rect x="21.5" y="25" width="3" height="2" rx=".5" fill="#3d8ef0"/>
+      <rect x="21.5" y="28" width="2" height="1.5" rx=".5" fill="#3d8ef0"/>
+    </svg>
+    <span class="logo-name">anans<span>i</span>key</span>
+  </a>
+  <div class="header-meta">
+    <a href="https://github.com/anansikey/anansikey" target="_blank">github</a>
+    <a href="https://github.com/anansikey/anansikey/wiki" target="_blank">docs</a>
+    <a href="https://marketplace.visualstudio.com/items?itemName=anansikey.anansikey-vscode" target="_blank">vscode</a>
+  </div>
+</header>
+
+<!-- ── Workspace ─────────────────────────────────────────── -->
+<div class="workspace">
+
+  <!-- ── Sidebar ─────────────────────────────────────────── -->
+  <aside class="sidebar" id="sidebar">
+    <!-- populated by JS -->
+    <div class="principles">
+      <p><strong>[P1]</strong> zero-knowledge</p>
+      <p><strong>[P2]</strong> read-only</p>
+      <p><strong>[P6]</strong> keys masked</p>
+      <p><strong>[P8]</strong> honest identity</p>
+    </div>
+  </aside>
+
+  <!-- ── Main ─────────────────────────────────────────────── -->
+  <main class="main">
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="single">single key</button>
+      <button class="tab-btn" data-tab="scan">scan .env</button>
+    </div>
+
+    <!-- Single key tab -->
+    <div id="tab-single">
+      <div id="welcome-state" class="welcome">
+        <div>← select a service to validate</div>
+        <div style="margin-top:16px;font-size:11px;color:var(--text-dim)">
+          or via cli:
+          <code class="cmd">$ anansikey check stripe --secret_key=sk_test_xxx</code>
+        </div>
+      </div>
+
+      <!-- Providers that need node:crypto (aws, pusher, apple, vapid) render
+           their explanation here, so #service-view below stays intact. -->
+      <div id="node-only-view" style="display:none"></div>
+
+      <div id="service-view" style="display:none">
+        <div class="service-header">
+          <div class="service-icon-lg" id="svc-icon"></div>
+          <div class="service-title">
+            <h2 id="svc-name"></h2>
+            <a id="svc-docs" class="docs-link" href="#" target="_blank">→ documentation</a>
+          </div>
+        </div>
+
+        <div class="fields" id="fields-container"></div>
+
+        <button class="btn-validate" id="btn-validate">
+          <span class="spinner"></span>
+          <span class="btn-label">$ validate</span>
+        </button>
+
+        <div class="result-panel" id="result-panel">
+          <div class="result-bar" id="result-bar">
+            <span class="result-icon" id="result-icon"></span>
+            <span class="result-msg"  id="result-msg"></span>
+            <span class="result-code" id="result-code"></span>
+          </div>
+          <div class="result-body" id="result-body"></div>
+          <div class="p1-notice">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+              <circle cx="5" cy="5" r="4.5" stroke="#4a6080"/>
+              <line x1="5" y1="3" x2="5" y2="5.5" stroke="#4a6080" stroke-width="1.2" stroke-linecap="round"/>
+              <circle cx="5" cy="7" r=".6" fill="#4a6080"/>
+            </svg>
+            credentials sent directly to provider api — not to anansikey [P1]
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scan .env tab -->
+    <div id="tab-scan" class="scan-panel">
+      <textarea
+        id="scan-input"
+        class="scan-area"
+        spellcheck="false"
+        placeholder="# paste your .env contents here&#10;STRIPE_SECRET_KEY=sk_test_xxx&#10;OPENAI_API_KEY=sk-xxx&#10;GITHUB_TOKEN=ghp_xxx&#10;&#10;# values never leave your browser [P1]"
+      ></textarea>
+
+      <div style="margin-top:12px;display:flex;gap:10px;align-items:center">
+        <button class="btn-validate" id="btn-scan">
+          <span class="spinner"></span>
+          <span class="btn-label">$ scan</span>
+        </button>
+        <span id="scan-hint" style="font-size:11px;color:var(--text-dim)"></span>
+      </div>
+
+      <div class="scan-results" id="scan-results"></div>
+    </div>
+
+  </main>
+</div><!-- /workspace -->
+</div><!-- /shell -->
+
+<!-- ANANSIKEY_BUNDLE_PLACEHOLDER: build.js inlines the compiled entry.js bundle here -->
+</body>
+</html>

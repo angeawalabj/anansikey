@@ -1,6 +1,7 @@
 # Dependencies
 node_modules/
 .npm/
+.pnpm-store/
 
 # Build outputs
 dist/
@@ -36,5 +37,13 @@ coverage/
 # Temporary
 tmp/
 temp/
-providers/   ← scaffold output (local only)
-./scripts/git-init.sh
+
+# Scaffold output — `pnpm run scaffold` writes here, at the repo root.
+# Leading slash is required: an unanchored `providers/` would also match
+# packages/core/providers/, i.e. the entire provider registry.
+/providers/
+
+# Local-only bootstrap helper
+/scripts/git-init.sh
+
+# pnpm-lock.yaml is intentionally NOT ignored — see DEPENDENCIES.md.

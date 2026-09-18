@@ -1,0 +1,45 @@
+version: 2
+updates:
+  # Root devDependencies (eslint, etc.)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      dev-tooling:
+        patterns:
+          - "eslint*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # cli — has the AWS SDK optional dependency
+  - package-ecosystem: "npm"
+    directory: "/packages/cli"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  # action — @actions/core
+  - package-ecosystem: "npm"
+    directory: "/packages/action"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  # vscode — @types/vscode
+  - package-ecosystem: "npm"
+    directory: "/packages/vscode"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  # GitHub Actions workflow versions themselves
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+# Intentionally no entry for /packages/core: it has zero dependencies by
+# design (see DEPENDENCIES.md) — nothing for Dependabot to update there.

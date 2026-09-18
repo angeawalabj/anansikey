@@ -35,7 +35,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: '20' }
+        with: { node-version: '24' }
       - run: node scripts/sast.js
       - run: node packages/chaos/runner.js
 
@@ -47,20 +47,28 @@ jobs:
     environment: npm-publish
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Publish CLI
-        run: npm publish --access public
-        working-directory: packages/cli
+      # `pnpm publish`, not `npm publish`: the packages depend on each
+      # other through the `workspace:*` protocol, which only pnpm rewrites
+      # into a real version range at pack time. npm would publish the
+      # literal "workspace:*" string and the tarball would be uninstallable.
+      # core first — cli depends on it.
+      - name: Publish core
+        run: pnpm publish --access public --no-git-checks
+        working-directory: packages/core
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Publish core
-        run: npm publish --access public
-        working-directory: packages/core
+      - name: Publish CLI
+        run: pnpm publish --access public --no-git-checks
+        working-directory: packages/cli
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -73,7 +81,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: '20' }
+        with: { node-version: '24' }
 
       - name: Install vsce
         run: npm install -g @vscode/vsce

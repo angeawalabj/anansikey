@@ -125,11 +125,12 @@ Use the PR template and fill the checklist completely.
 ```bash
 git clone https://github.com/anansikey/anansikey
 cd anansikey
+pnpm install
 
-# Make your fix
-# Run tests
-node packages/chaos/runner.js
-node scripts/sast.js
+# Make your fix, then run the checks CI will run
+pnpm run lint       # eslint + eslint-plugin-security
+pnpm run sast       # provider source rules
+pnpm run test       # unit tests + 200-scenario chaos suite
 
 # Submit PR with a clear description of what was wrong and why
 ```
@@ -142,13 +143,16 @@ node scripts/sast.js
 packages/
   core/
     providers/     ← Provider files (one per service or per category)
+      *.node.js    ← Providers needing node:crypto (aws, pusher, apple, vapid)
+      __tests__/   ← Unit tests for the crypto primitives (node --test)
     adapters/
       node.js      ← HTTP adapter for CLI + VS Code (Node.js https)
       browser.js   ← HTTP adapter for web app (fetch API)
     results/
       index.js     ← ok/fail/warn/netErr/malformed constructors + error codes
       mask.js      ← maskSecret() — single implementation
-    index.js       ← Registry, detectServices(), runProvider(), ENV_VAR_MAP
+    index.js       ← Browser-safe registry (21 providers) + detectServices(), runProvider()
+    index.node.js  ← Full registry (25) — what Node resolves via the "node" export condition
 
   cli/
     index.js       ← Commands: check, scan, fetch, list, scaffold, help
@@ -161,7 +165,12 @@ packages/
       index.js     ← resolveSecretSource() dispatcher
 
   web/
-    index.html     ← Single-file web app (providers inlined, browser adapter)
+    build.js       ← esbuild build: bundles the real core, inlines it into one HTML file
+    src/
+      entry.js     ← Web app logic — imports @anansikey/core, no duplicated providers
+      index.html   ← Page shell + styles, with the bundle placeholder comment
+    dist/
+      index.html   ← Build output (gitignored) — the single file you deploy
 
   vscode/
     src/extension.js ← VS Code extension (imports core, injects node adapter)
@@ -178,8 +187,15 @@ packages/
       stripe.chaos.js  ← Deep test for Stripe (template for other providers)
 
 scripts/
-  sast.js    ← Static security analysis: 7 rules, blocks malicious providers
+  sast.js                     ← Static security analysis: 7 rules, blocks malicious providers
+  check-core-zero-deps.js     ← core's manifest must declare no dependencies
+  check-web-bundle-purity.js  ← no node:crypto may leak into the browser bundle
 ```
+
+The repo is a **pnpm workspace**. `pnpm-workspace.yaml` is the single source of
+truth for the package list, the shared-version `catalog:`, and the install-time
+supply-chain policy — there is deliberately no npm `workspaces` field in the
+root `package.json`. See `DEPENDENCIES.md` before adding any dependency.
 
 ---
 
@@ -204,9 +220,10 @@ These rules are enforced by `scripts/sast.js`. PRs that violate them are **rejec
 1. Fork the repository
 2. Create a branch: `git checkout -b feat/add-myservice-provider`
 3. Make your changes
-4. Run `node packages/chaos/runner.js` → must pass
-5. Run `node scripts/sast.js` → must show no violations
-6. Submit PR with the template filled completely
+4. Run `pnpm run test` → unit tests + chaos suite must pass
+5. Run `pnpm run sast` and `pnpm run lint` → must show no violations
+6. If you touched `packages/core` or `packages/web`, run `pnpm run build:web && pnpm run verify:web-bundle-purity`
+7. Submit PR with the template filled completely
 
 **PR title format:**
 - `feat: add MyService provider`

@@ -57,7 +57,7 @@ Go to your repo → **Settings** → then:
 **Branch protection (main):**
 - Settings → Branches → Add rule → Branch name: `main`
 - ✓ Require a pull request before merging
-- ✓ Require status checks to pass (select: `sast`, `chaos`)
+- ✓ Require status checks to pass (select the CI job names: `verify`, `smoke`)
 - ✓ Require conversation resolution before merging
 
 ### Create a GitHub Release
@@ -85,16 +85,22 @@ npm login
 npm whoami
 ```
 
+> **Use `pnpm publish`, not `npm publish`.** The packages depend on each other
+> through the `workspace:*` protocol. Only pnpm rewrites that into a real version
+> range when it builds the tarball — `npm publish` would ship the literal string
+> `"workspace:*"` and the published package would be uninstallable.
+> Publish **core first**: the CLI depends on it.
+
 ### Publish @anansikey/core
 
 ```bash
 cd packages/core
 
 # Check what will be published (verify no secrets are included)
-npm pack --dry-run
+pnpm pack --dry-run
 
 # Publish
-npm publish --access public
+pnpm publish --access public
 ```
 
 ### Publish the CLI (anansikey)
@@ -105,8 +111,8 @@ cd packages/cli
 # Check package.json has the right "bin" field:
 # "bin": { "anansikey": "./index.js" }
 
-npm pack --dry-run
-npm publish --access public
+pnpm pack --dry-run
+pnpm publish --access public
 ```
 
 ### Verify the publish
@@ -128,9 +134,13 @@ anansikey check stripe --secret_key=sk_test_invalid
 # Edit: packages/core/package.json → "version": "2.0.1"
 # Edit: packages/cli/package.json  → "version": "2.0.1"
 
-npm publish --access public   # from packages/core/
-npm publish --access public   # from packages/cli/
+pnpm publish --access public   # from packages/core/ — core first
+pnpm publish --access public   # from packages/cli/
 ```
+
+Note: `.github/workflows/release.yml` does all of this automatically on a
+`v*.*.*` tag, and refuses to publish if the tag and the package versions
+disagree.
 
 ### Add npm badge to README
 
@@ -167,7 +177,11 @@ npm install -g @vscode/vsce
 ```bash
 cd packages/vscode
 
-# Package (creates anansikey-2.0.0.vsix)
+# Package (creates anansikey-vscode-2.0.0.vsix)
+# The package is named "anansikey-vscode": the CLI package already owns the
+# bare "anansikey" name in this workspace. The marketplace item is
+# anansikey.anansikey-vscode; the name users see is still "Anansikey — API
+# Key Validator" (the displayName field).
 vsce package
 
 # Publish
@@ -191,13 +205,30 @@ vsce publish minor   # increments minor version
 
 ## 4. Deploy the Web App
 
-The web app is a single HTML file — deploy anywhere.
+### Build it first
+
+The web app is **built**, not hand-written: `packages/web/build.js` bundles the
+real `@anansikey/core` registry with esbuild and inlines it into a single static
+HTML file. There is no hand-duplicated provider logic to keep in sync.
+
+```bash
+pnpm install
+pnpm run build:web                 # → packages/web/dist/index.html
+pnpm run verify:web-bundle-purity  # asserts no node:crypto leaked into the bundle
+```
+
+The output is one self-contained file: no server, no build step for the end
+user, and no external request needed to load the app itself. `dist/` is
+gitignored — build it as part of deployment rather than committing it.
+
+Deploy `packages/web/dist/index.html` anywhere that serves static files.
 
 ### Option A: Vercel (recommended, free)
 
 ```bash
 npm install -g vercel
-cd packages/web
+pnpm run build:web
+cd packages/web/dist
 vercel deploy --prod
 
 # Custom domain:
@@ -208,18 +239,19 @@ vercel deploy --prod
 
 ```bash
 npm install -g netlify-cli
-cd packages/web
-netlify deploy --prod --dir=.
+pnpm run build:web
+netlify deploy --prod --dir=packages/web/dist
 ```
 
 ### Option C: GitHub Pages (free, no custom domain needed)
 
-1. Push `packages/web/index.html` to the `gh-pages` branch:
+1. Build, then push the built file to the `gh-pages` branch:
 
 ```bash
+pnpm run build:web
 git checkout -b gh-pages
-cp packages/web/index.html index.html
-git add index.html
+cp packages/web/dist/index.html index.html
+git add -f index.html   # -f: dist/ is gitignored, this copy is not
 git commit -m "deploy web app"
 git push origin gh-pages
 ```
@@ -231,7 +263,8 @@ git push origin gh-pages
 
 1. Push to GitHub
 2. Cloudflare dashboard → Pages → Create project → Connect to GitHub
-3. Select repo → Build settings: none (static HTML) → Deploy
+3. Select repo → Build command: `pnpm run build:web` → Output directory:
+   `packages/web/dist` → Deploy
 
 ---
 
@@ -259,7 +292,7 @@ git push origin gh-pages
 - Key Masking [P6]: `sk_t••••••••mnop`
 - Semantic exit codes: 0 valid, 1 auth failed, 2 network, 3 format, 4 rate limited
 
-**Tech stack:** Node.js 20, ESM, zero npm dependencies in core, browser fetch API, VS Code Extension API, GitHub Actions.
+**Tech stack:** Node.js 24, ESM, zero npm dependencies in core, browser fetch API, VS Code Extension API, GitHub Actions.
 
 ### GitHub topics to set
 

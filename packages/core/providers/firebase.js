@@ -31,7 +31,7 @@ export default {
     return null;
   },
 
-  request({ api_key, project_id }) {
+  request({ api_key }) {
     return {
       hostname: 'identitytoolkit.googleapis.com',
       path:     `/v1/accounts:lookup?key=${api_key.trim()}`,
@@ -42,13 +42,11 @@ export default {
 
   parse(status, body, creds) {
     if (body?._malformed) return malformed(status, body._raw);
-    // 400 with INVALID_ID_TOKEN = key works but no valid token provided (expected)
     if (status === 400 && body.error?.message === 'INVALID_ID_TOKEN')
       return ok(
         'Firebase API key valid — Authentication enabled',
         `Project: ${creds?.project_id} · Key: ${maskSecret(creds?.api_key)}`
       );
-    // 400 with other codes = actual config issues
     if (status === 400) {
       const msg = body.error?.message ?? '';
       if (msg === 'API_KEY_INVALID')

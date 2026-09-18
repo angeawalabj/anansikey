@@ -113,5 +113,5 @@ outputs:
 
 # ── Runtime ───────────────────────────────────────────────────
 runs:
-  using: 'node20'
+  using: 'node24'
   main: 'entrypoint.js'

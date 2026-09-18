@@ -11,11 +11,8 @@ export default {
     const k = token?.trim() ?? '';
     if (!k) return fail(ErrorCode.MISSING_KEY, 'Token is required',
       'Create one at github.com/settings/tokens');
-    // Modern fine-grained tokens
     if (k.startsWith('github_pat_')) return null;
-    // Classic tokens
     if (k.startsWith('ghp_') || k.startsWith('gho_') || k.startsWith('ghs_')) return null;
-    // Legacy 40-char hex
     if (/^[a-f0-9]{40}$/.test(k))
       return warn(ErrorCode.FORMAT_WARNING,
         'Legacy token format (40-char hex) — still works but consider upgrading',

@@ -4,12 +4,21 @@
   "type": "module",
   "main": "./index.js",
   "exports": {
-    ".":           "./index.js",
-    "./adapters/node":    "./adapters/node.js",
-    "./adapters/browser": "./adapters/browser.js",
-    "./results":   "./results/index.js",
-    "./mask":      "./results/mask.js"
+    ".": {
+      "node": "./index.node.js",
+      "default": "./index.js"
+    },
+    "./adapters/node.js": "./adapters/node.js",
+    "./adapters/browser.js": "./adapters/browser.js",
+    "./results/index.js": "./results/index.js",
+    "./mask": "./results/mask.js",
+    "./results/mask.js": "./results/mask.js"
   },
-  "description": "Provider registry and adapters — zero dependencies",
-  "license": "MIT"
+  "description": "Provider registry, result types, adapters for Anansikey. Zero runtime dependencies by design — see DEPENDENCIES.md. index.js is the browser-safe registry (21 providers); index.node.js extends it with the 4 providers that need node:crypto (aws, pusher, apple, vapid) and is what Node.js resolves automatically via the \"node\" export condition.",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {},
+  "engines": {
+    "node": ">=24.0.0"
+  }
 }

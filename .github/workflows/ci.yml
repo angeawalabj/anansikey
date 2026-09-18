@@ -8,97 +8,128 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
 
 jobs:
-  # ── 1. SAST — security scan on provider files ─────────────────
-  sast:
-    name: SAST Security Scan
+  # ── 1. Verify ────────────────────────────────────────────────
+  # Cheapest checks first, so a lint or format error fails in seconds
+  # instead of after the 200-scenario chaos suite.
+  verify:
+    name: Lint, SAST, audit, tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+
       - uses: actions/setup-node@v4
-        with: { node-version: '20' }
+        with:
+          node-version: '24'
+          cache: 'pnpm'
 
-      - name: Run SAST
-        run: node scripts/sast.js
+      - name: Install
+        run: pnpm install --frozen-lockfile
 
-  # ── 2. Chaos suite — 200 scenarios across all providers ───────
-  chaos:
-    name: Chaos Suite (200 tests)
-    runs-on: ubuntu-latest
-    needs: sast
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: '20' }
+      - name: Lint (eslint + eslint-plugin-security)
+        run: pnpm run lint
 
-      - name: Run chaos suite
-        run: node packages/chaos/runner.js
+      - name: Core zero-dependency check (manifest level)
+        run: pnpm run check:core-zero-deps
+
+      - name: SAST (provider source rules)
+        run: pnpm run sast
+
+      - name: Dependency audit
+        run: pnpm audit --audit-level=high
+
+      - name: OSV-Scanner
+        uses: google/osv-scanner-action/osv-scanner-action@v2
+        with:
+          scan-args: |-
+            --lockfile=pnpm-lock.yaml
+
+      # Unit tests: real cryptographic primitives (SigV4, Pusher HMAC,
+      # Apple ES256, VAPID ECDH) checked against published worked examples.
+      - name: Unit tests
+        run: pnpm run test:unit
+
+      # Most expensive: every provider against every failure mode.
+      - name: Chaos suite
+        run: pnpm run chaos
 
       - name: Stripe deep chaos
-        run: node packages/chaos/scenarios/stripe.chaos.js
+        run: pnpm run chaos:stripe
 
-  # ── 3. CLI smoke test ─────────────────────────────────────────
-  cli:
-    name: CLI Smoke Test
+      - name: Build web app (bundles the real @anansikey/core, no duplication)
+        run: pnpm run build:web
+
+      - name: Web bundle purity (no node:crypto leaked into the browser build)
+        run: pnpm run verify:web-bundle-purity
+
+  # ── 2. Smoke tests — the four consumers of packages/core ─────
+  smoke:
+    name: CLI / VS Code / Action smoke tests
     runs-on: ubuntu-latest
-    needs: chaos
+    needs: verify
     steps:
       - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+
       - uses: actions/setup-node@v4
-        with: { node-version: '20' }
+        with:
+          node-version: '24'
+          cache: 'pnpm'
 
-      - name: Install CLI
-        run: npm install -g .
-        working-directory: packages/cli
+      - name: Install
+        run: pnpm install --frozen-lockfile
 
-      - name: CLI help command
-        run: node packages/cli/index.js help
-
-      - name: CLI list command
-        run: node packages/cli/index.js list
-
-      - name: Format validation (exits 3, not crash)
+      # ── CLI ──────────────────────────────────────────────────
+      - name: CLI help / list
         run: |
-          node packages/cli/index.js check stripe \
-            --secret_key=INVALID_FORMAT || true
-          # Must exit with code 3 (FORMAT_ERROR), not crash
-          node packages/cli/index.js check stripe \
-            --secret_key=INVALID_FORMAT; echo "exit:$?"
-          EXIT=$(node packages/cli/index.js check stripe --secret_key=BAD 2>/dev/null; echo $?)
-          # Just verify it doesn't crash (exit 9)
-          [ "$EXIT" != "9" ] && echo "✓ No internal crash" || exit 1
+          node packages/cli/index.js help
+          node packages/cli/index.js list
 
-      - name: Missing key (exits 3)
+      # Exit codes are the CLI's contract with CI pipelines, so they are
+      # asserted exactly — not just "non-zero". No network is involved:
+      # an invalid format is rejected by format() before request().
+      - name: CLI exits 3 on invalid format (never 9 = internal crash)
         run: |
-          node packages/cli/index.js check github 2>/dev/null || true
-          echo "✓ Missing key handled gracefully"
+          set +e
+          node packages/cli/index.js check stripe --secret_key=INVALID_FORMAT >/dev/null 2>&1
+          EXIT=$?
+          set -e
+          echo "exit=$EXIT"
+          [ "$EXIT" = "3" ] || { echo "✗ expected exit 3 (FORMAT_ERROR), got $EXIT"; exit 1; }
 
-      - name: Scaffold command
+      - name: CLI exits 3 on missing key
+        run: |
+          set +e
+          node packages/cli/index.js check github >/dev/null 2>&1
+          EXIT=$?
+          set -e
+          echo "exit=$EXIT"
+          [ "$EXIT" = "3" ] || { echo "✗ expected exit 3 (MISSING_KEY), got $EXIT"; exit 1; }
+
+      - name: CLI scaffold generates a provider skeleton
         run: |
           node packages/cli/index.js scaffold --name=TestProvider
-          [ -f "providers/testprovider.js" ] && echo "✓ Scaffold created" || exit 1
+          [ -f providers/testprovider.js ] || { echo "✗ scaffold produced no file"; exit 1; }
+          node --check providers/testprovider.js
           rm -rf providers/
+          echo "✓ scaffold output is syntactically valid"
 
-  # ── 4. VS Code extension smoke test ──────────────────────────
-  vscode:
-    name: VS Code Extension Tests
-    runs-on: ubuntu-latest
-    needs: chaos
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: '20' }
-
-      - name: Extension logic test
+      # ── VS Code extension ────────────────────────────────────
+      - name: VS Code extension logic
         run: |
           node --input-type=module << 'VSTEST'
-          import path from 'path';
-          import { detectServices } from './packages/core/index.js';
-          import { maskSecret } from './packages/core/results/mask.js';
+          import path from 'node:path';
+          import { detectServices } from './packages/core/index.node.js';
 
-          // isEnvFile logic
+          // Mirrors isEnvFile() in packages/vscode/src/extension.js
           const isEnvFile = (n) => {
             const base = path.basename(n);
             return base === '.env' || base.startsWith('.env.') ||
@@ -110,40 +141,28 @@ jobs:
             ['index.js', false], ['package.json', false],
           ];
           for (const [file, want] of cases) {
-            const got = isEnvFile(file);
-            if (got !== want) { console.error('FAIL isEnvFile', file); process.exit(1); }
+            if (isEnvFile(file) !== want) { console.error('FAIL isEnvFile', file); process.exit(1); }
           }
 
-          // detectServices integration
           const detected = detectServices({
             STRIPE_SECRET_KEY: 'sk_test_' + 'a'.repeat(40),
             GITHUB_TOKEN: 'ghp_' + 'b'.repeat(36),
           });
-          if (detected.length !== 2) { console.error('FAIL detectServices'); process.exit(1); }
+          if (detected.length !== 2) { console.error('FAIL detectServices:', detected.length); process.exit(1); }
 
-          console.log('✓ VS Code extension tests passed');
+          console.log('✓ VS Code extension logic tests passed');
           VSTEST
 
-  # ── 5. Action self-test ───────────────────────────────────────
-  action:
-    name: GitHub Action Self-Test
-    runs-on: ubuntu-latest
-    needs: chaos
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: '20' }
-
-      - name: Action logic test
+      # ── GitHub Action ────────────────────────────────────────
+      - name: Action worstExit logic
         run: |
           node --input-type=module << 'ACTIONTEST'
           import { ResultType, ExitCode, exitCodeFor } from './packages/core/results/index.js';
 
-          // worstExit logic
           const results = [
             { type: ResultType.SUCCESS },
-            { type: ResultType.ERROR,  code: 'AUTH_FAILED' },
-            { type: ResultType.WARN,   code: 'LOW_BALANCE' },
+            { type: ResultType.ERROR, code: 'AUTH_FAILED' },
+            { type: ResultType.WARN,  code: 'LOW_BALANCE' },
           ];
           let worst = ExitCode.OK;
           for (const r of results) {
@@ -155,32 +174,17 @@ jobs:
           console.log('✓ GitHub Action logic tests passed');
           ACTIONTEST
 
-      - name: Action validates .env file
-        uses: ./packages/action
-        with:
-          env_file: '.env.test'
-        env:
-          # Create a minimal test .env
-          _setup: |
-            echo "GITHUB_TOKEN=ghp_${{ secrets.GITHUB_TOKEN }}" > .env.test
-        continue-on-error: true   # we expect this may warn
-
-  # ── 6. Dependency audit ───────────────────────────────────────
-  audit:
-    name: Dependency Audit
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Verify zero core dependencies
+      # End-to-end run of the real entrypoint. Format-invalid values on
+      # purpose: the run must stay entirely offline and must never exit 9.
+      - name: Action entrypoint end-to-end
         run: |
-          # packages/core must have NO external dependencies
-          DEPS=$(node -e "
-          const pkg = JSON.parse(require('fs').readFileSync('packages/core/package.json'));
-          console.log(Object.keys(pkg.dependencies || {}).join(','));
-          ")
-          if [ -n "$DEPS" ]; then
-            echo "✗ Core has external dependencies: $DEPS"
-            echo "The core package must have zero dependencies."
-            exit 1
-          fi
-          echo "✓ packages/core has zero external dependencies"
+          printf 'STRIPE_SECRET_KEY=INVALID_FORMAT\nGITHUB_TOKEN=not_a_token\n' > .env.ci-smoke
+          set +e
+          INPUT_ENV_FILE=.env.ci-smoke node packages/action/entrypoint.js
+          EXIT=$?
+          set -e
+          rm -f .env.ci-smoke
+          echo "exit=$EXIT"
+          [ "$EXIT" != "0" ] || { echo "✗ invalid credentials must not pass"; exit 1; }
+          [ "$EXIT" != "9" ] || { echo "✗ internal crash (exit 9)"; exit 1; }
+          echo "✓ action entrypoint handled invalid credentials without crashing"

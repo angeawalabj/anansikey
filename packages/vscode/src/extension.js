@@ -20,6 +20,12 @@ const fs     = require('fs');
 // ── Import @anansikey/core via relative path ──────────────────
 // In production build, these are bundled by esbuild.
 // In dev, they resolve relative to the monorepo root.
+// index.node.js (not index.js) — the extension runs in Node.js, so it
+// gets the full 25-provider registry, including the 4 that need
+// node:crypto (aws, pusher, apple, vapid). A relative-path import like
+// this does not go through package.json's "exports" conditions (those
+// only apply to bare-specifier resolution), so the node-only entry
+// point must be named explicitly.
 const CORE_PATH = path.resolve(__dirname, '../../core');
 
 let PROVIDERS, PROVIDERS_BY_ID, detectServices, runProvider,
@@ -27,7 +33,7 @@ let PROVIDERS, PROVIDERS_BY_ID, detectServices, runProvider,
 
 async function loadCore() {
   // Dynamic import because core is ESM
-  const core    = await import(path.join(CORE_PATH, 'index.js'));
+  const core    = await import(path.join(CORE_PATH, 'index.node.js'));
   const adapter = await import(path.join(CORE_PATH, 'adapters/node.js'));
   const mask    = await import(path.join(CORE_PATH, 'results/mask.js'));
 
@@ -45,7 +51,10 @@ async function loadCore() {
 // ── Constants ─────────────────────────────────────────────────
 const SCAN_DELAY_MS  = 500;   // [P7]
 const OUTPUT_CHANNEL = 'Anansikey';
-const EXTENSION_ID   = 'anansikey.anansikey';
+// publisher.name — the package is named "anansikey-vscode", not "anansikey",
+// because the CLI package already owns the bare "anansikey" name in this
+// pnpm workspace and two projects cannot share one name.
+const EXTENSION_ID   = 'anansikey.anansikey-vscode';
 
 // ── State ─────────────────────────────────────────────────────
 let outputChannel;

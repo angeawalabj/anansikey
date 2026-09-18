@@ -1,4 +1,4 @@
-import { ok, fail, warn, malformed, ErrorCode } from '../results/index.js';
+import { ok, fail, malformed, ErrorCode } from '../results/index.js';
 import { maskSecret } from '../results/mask.js';
 
 export default {
@@ -11,11 +11,8 @@ export default {
     const k = api_key?.trim() ?? '';
     if (!k) return fail(ErrorCode.MISSING_KEY, 'API key is required',
       'Create one at platform.openai.com/api-keys');
-    // New format: sk-proj-... (project keys)
     if (k.startsWith('sk-proj-')) return null;
-    // Service account keys
     if (k.startsWith('sk-svcacct-')) return null;
-    // Classic format: sk-[48 chars]
     if (k.startsWith('sk-') && k.length >= 40) return null;
     if (k.startsWith('sk-') && k.length < 40)
       return fail(ErrorCode.FORMAT_ERROR,

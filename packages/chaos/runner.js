@@ -8,10 +8,41 @@
  * CI:    exits 1 if any provider crashes on any scenario
  */
 
-import { PROVIDERS } from '../core/index.js';
+// index.node.js (not index.js) — the chaos suite runs in Node.js and
+// must exercise the full 25-provider registry, including the 4 that
+// need node:crypto (aws, pusher, apple, vapid). A relative-path import
+// bypasses package.json's "exports" conditions, so the node-only entry
+// point must be named explicitly, or those 4 providers would silently
+// drop out of chaos coverage.
+import { PROVIDERS } from '../core/index.node.js';
 import { fullChaos, summary } from './harness/index.js';
+import crypto from 'node:crypto';
 
 const C = '\x1b[36m', D = '\x1b[90m', X = '\x1b[0m';
+
+// ── Real EC key material for apple / vapid ─────────────────────
+// Unlike every other provider here, apple.format() and vapid.format()
+// do genuine cryptographic self-verification (ES256 sign+verify for
+// Apple, ECDH public-key re-derivation for VAPID — see
+// packages/core/providers/auth.node.js). A placeholder string of
+// repeated characters fails that check and short-circuits before the
+// network layer, which would silently exclude both providers from
+// chaos-testing their parse()/network code path. Generating real,
+// throwaway key pairs here (same approach as
+// packages/core/providers/__tests__/apple.jwt.test.js and
+// vapid.ecdh.test.js) keeps format() passing so the scenarios below
+// actually reach parse().
+function base64url(buf) {
+  return buf.toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+}
+
+const { privateKey: applePrivateKey } = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+const APPLE_PRIVATE_KEY_PEM = applePrivateKey.export({ type: 'pkcs8', format: 'pem' });
+
+const vapidEcdh = crypto.createECDH('prime256v1');
+vapidEcdh.generateKeys();
+const VAPID_PUBLIC_KEY  = base64url(vapidEcdh.getPublicKey());
+const VAPID_PRIVATE_KEY = base64url(vapidEcdh.getPrivateKey());
 
 // ── Valid test credentials for each provider ──────────────────
 // These are structurally valid but fake — used to bypass format()
@@ -31,7 +62,7 @@ const VALID_CREDS = {
   airtable:       { token:           'pat' + 'a'.repeat(20) },
   firebase:       { api_key: 'AIzaSy' + 'a'.repeat(33), project_id: 'my-project' },
   google_oauth:   { client_id: 'abc.apps.googleusercontent.com', access_token: 'ya29.' + 'a'.repeat(80) },
-  apple:          { team_id: 'AAAAAAAAAA', key_id: 'BBBBBBBBBB', bundle_id: 'com.test.app' },
+  apple:          { team_id: 'AAAAAAAAAA', key_id: 'BBBBBBBBBB', bundle_id: 'com.test.app', private_key: APPLE_PRIVATE_KEY_PEM },
   linkedin:       { access_token:    'AQV' + 'a'.repeat(200) },
   facebook:       { access_token:    'EAA' + 'a'.repeat(100) },
   aws:            { access_key_id: 'AKIAIOSFODNN7EXAMPLE', secret_access_key: 'a'.repeat(40), region: 'us-east-1' },
@@ -41,7 +72,7 @@ const VALID_CREDS = {
   pusher:         { app_id: '123456', app_key: 'a'.repeat(10), app_secret: 'b'.repeat(10), cluster: 'eu' },
   github:         { token:           'ghp_' + 'a'.repeat(36) },
   notion:         { token:           'secret_' + 'a'.repeat(40) },
-  vapid:          { public_key: 'B' + 'A'.repeat(86), private_key: 'a'.repeat(43) },
+  vapid:          { public_key: VAPID_PUBLIC_KEY, private_key: VAPID_PRIVATE_KEY },
 };
 
 async function main() {
@@ -65,7 +96,11 @@ async function main() {
   const { execSync } = await import('child_process');
   try {
     execSync('node scripts/sast.js', {
-      cwd: new URL('../../..', import.meta.url).pathname,
+      // '../..' from packages/chaos/ reaches the repo root (v2/), where
+      // scripts/sast.js actually lives — '../../..' (the original value
+      // here) overshot by one level and always failed with
+      // MODULE_NOT_FOUND whenever this ran to completion.
+      cwd: new URL('../..', import.meta.url).pathname,
       stdio: 'inherit',
     });
   } catch {

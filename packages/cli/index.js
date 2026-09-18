@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * @anansikey/cli — v2
+ * anansikey (CLI) — v2
  *
  * Commands:
  *   check   <service> [--field=value ...] [--silent] [--no-color] [--json]
@@ -26,7 +26,7 @@ import { resolve, basename } from 'path';
 import {
   PROVIDERS, PROVIDERS_BY_ID, detectServices, runProvider,
   ExitCode, exitCodeFor, ResultType, ErrorCode,
-} from '../core/index.js';
+} from '../core/index.node.js';
 import { request } from '../core/adapters/node.js';
 import { maskSecret, sanitizeCreds } from '../core/results/mask.js';
 import { netErr } from '../core/results/index.js';
@@ -245,7 +245,7 @@ function cmdList() {
   }
 }
 
-function cmdScaffold(args) {
+async function cmdScaffold(args) {
   const nameArg = args.find(a => a.startsWith('--name='));
   if (!nameArg) {
     err(c('red', '\n  ✗ Usage: anansikey scaffold --name=ServiceName\n'));
@@ -361,10 +361,13 @@ export default {
   log(c('green', `\n  ✓ Scaffold created: ./providers/${id}.js`));
   log(c('gray', `\n  Next steps:`));
   log(c('cyan',  `    1. Fill in all TODO items in providers/${id}.js`));
-  log(c('cyan',  `    2. Add to packages/core/index.js imports`));
-  log(c('cyan',  `    3. Add test creds to packages/chaos/runner.js`));
-  log(c('cyan',  `    4. Run: node packages/chaos/runner.js`));
-  log(c('cyan',  `    5. Submit PR with the checklist filled\n`));
+  log(c('cyan',  `    2. Move it into packages/core/providers/ — the template's`));
+  log(c('gray',  `       '../results/*.js' imports are written for that location`));
+  log(c('cyan',  `    3. Register it in packages/core/index.js (or index.node.js`));
+  log(c('gray',  `       if it needs node:crypto for real request signing)`));
+  log(c('cyan',  `    4. Add test creds to packages/chaos/runner.js`));
+  log(c('cyan',  `    5. Run: pnpm run sast && pnpm run test`));
+  log(c('cyan',  `    6. Submit PR with the checklist filled\n`));
 }
 
 function cmdHelp() {

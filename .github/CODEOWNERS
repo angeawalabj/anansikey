@@ -32,5 +32,5 @@ packages/chaos/                  @anansikey/contributors @anansikey/maintainers
 
 # ── Documentation ─────────────────────────────────────────────
 *.md                             @anansikey/contributors @anansikey/maintainers
-packages/web/index.html          @anansikey/contributors @anansikey/maintainers
+packages/web/                    @anansikey/contributors @anansikey/maintainers
 packages/vscode/                 @anansikey/contributors @anansikey/maintainers

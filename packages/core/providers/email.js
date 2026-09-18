@@ -1,7 +1,6 @@
 import { ok, fail, warn, malformed, ErrorCode } from '../results/index.js';
 import { maskSecret } from '../results/mask.js';
 
-// ── SendGrid ──────────────────────────────────────────────────
 export const sendgrid = {
   id: 'sendgrid', name: 'SendGrid', icon: '📧', category: 'Email',
   docs: 'https://app.sendgrid.com/settings/api_keys',
@@ -60,7 +59,6 @@ export const sendgrid = {
   },
 };
 
-// ── Mailgun ───────────────────────────────────────────────────
 export const mailgun = {
   id: 'mailgun', name: 'Mailgun', icon: '🔫', category: 'Email',
   docs: 'https://app.mailgun.com/settings/api_security',
@@ -75,7 +73,6 @@ export const mailgun = {
     const d = domain?.trim()  ?? '';
     if (!k) return fail(ErrorCode.MISSING_KEY, 'API key is required',
       'Find it at app.mailgun.com/settings/api_security');
-    // Private key: key-xxxxxxxx OR hex string
     if (!k.startsWith('key-') && !/^[a-f0-9]{32}$/.test(k))
       return fail(ErrorCode.FORMAT_ERROR,
         'Mailgun private keys start with "key-" or are 32 hex characters',
@@ -86,7 +83,7 @@ export const mailgun = {
   },
 
   request({ api_key, domain }) {
-    const creds = Buffer.from(`api:${api_key.trim()}`).toString('base64');
+    const creds = btoa(`api:${api_key.trim()}`);
     return {
       hostname: 'api.mailgun.net',
       path:     `/v3/domains/${domain.trim()}`,
@@ -114,7 +111,6 @@ export const mailgun = {
   },
 };
 
-// ── Resend ────────────────────────────────────────────────────
 export const resend = {
   id: 'resend', name: 'Resend', icon: '✉️', category: 'Email',
   docs: 'https://resend.com/api-keys',

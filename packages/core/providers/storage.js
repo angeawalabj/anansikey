@@ -1,7 +1,6 @@
 import { ok, fail, malformed, ErrorCode } from '../results/index.js';
 import { maskSecret } from '../results/mask.js';
 
-// ── Cloudinary ────────────────────────────────────────────────
 export const cloudinary = {
   id: 'cloudinary', name: 'Cloudinary', icon: '☁️', category: 'Media / Storage',
   docs: 'https://console.cloudinary.com/settings/api-keys',
@@ -26,7 +25,7 @@ export const cloudinary = {
   },
 
   request({ cloud_name, api_key, api_secret }) {
-    const creds = Buffer.from(`${api_key.trim()}:${api_secret.trim()}`).toString('base64');
+    const creds = btoa(`${api_key.trim()}:${api_secret.trim()}`);
     return {
       hostname: 'api.cloudinary.com',
       path:     `/v1_1/${cloud_name.trim()}/usage`,
@@ -52,7 +51,6 @@ export const cloudinary = {
   },
 };
 
-// ── Airtable ──────────────────────────────────────────────────
 export const airtable = {
   id: 'airtable', name: 'Airtable', icon: '📊', category: 'Database',
   docs: 'https://airtable.com/create/tokens',
@@ -63,9 +61,7 @@ export const airtable = {
     const k = token?.trim() ?? '';
     if (!k) return fail(ErrorCode.MISSING_KEY, 'Token is required',
       'Create one at airtable.com/create/tokens');
-    // Personal Access Token (modern)
     if (k.startsWith('pat')) return null;
-    // Legacy API key
     if (k.startsWith('key') && k.length === 17) return null;
     if (k.startsWith('key'))
       return fail(ErrorCode.FORMAT_ERROR,
@@ -103,7 +99,6 @@ export const airtable = {
   },
 };
 
-// ── Notion ────────────────────────────────────────────────────
 export const notion = {
   id: 'notion', name: 'Notion', icon: '📓', category: 'Productivity',
   docs: 'https://www.notion.so/my-integrations',
@@ -151,7 +146,6 @@ export const notion = {
   },
 };
 
-// ── Pinecone ──────────────────────────────────────────────────
 export const pinecone = {
   id: 'pinecone', name: 'Pinecone', icon: '🌲', category: 'AI / ML',
   docs: 'https://app.pinecone.io',
@@ -162,7 +156,6 @@ export const pinecone = {
     const k = api_key?.trim() ?? '';
     if (!k) return fail(ErrorCode.MISSING_KEY, 'API key is required',
       'Find it at app.pinecone.io → API Keys');
-    // Pinecone keys are UUID-like or alphanumeric
     if (k.length < 20)
       return fail(ErrorCode.FORMAT_ERROR,
         `Key too short (${k.length} chars)`,

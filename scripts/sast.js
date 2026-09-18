@@ -7,6 +7,7 @@
  *
  * Checks:
  *   1. No import of 'https', 'http', 'fetch', 'node-fetch', 'axios', etc.
+ *      (including the node:http(s) prefixed forms)
  *      — providers must not make HTTP calls directly
  *   2. No console.log / console.error of secret values
  *      — all logging must go through maskSecret()
@@ -15,8 +16,15 @@
  *   4. No process.exit() — providers must return, not exit
  *   5. No dynamic require() or import() with variable paths
  *      — prevents supply chain injection
- *   6. No external npm imports (only @anansikey/core/* allowed)
- *      — zero dependency policy in providers
+ *   6. No external npm imports — only @anansikey/core/*, relative imports,
+ *      and Node.js built-ins (node:*) are allowed. Built-ins are exempt
+ *      because 'node:'-prefixed specifiers are resolved directly by the
+ *      Node.js runtime, bypassing node_modules entirely — they cannot be
+ *      shadowed or hijacked by a malicious npm package, unlike a bare
+ *      'crypto' or 'buffer' specifier which technically *could* be shadowed
+ *      by a same-named package in node_modules. This is why providers must
+ *      use the 'node:' prefix explicitly — a bare built-in specifier is
+ *      still flagged as external by this rule.
  */
 
 import fs from 'fs';
@@ -37,12 +45,16 @@ const RULES = [
     id: 'NO_HTTP_IMPORT',
     description: 'Provider must not import HTTP libraries directly',
     severity: 'CRITICAL',
-    check(src, filename) {
+    check(src) {
       const banned = [
-        /import\s+https\s+from/,
-        /import\s+http\s+from/,
+        /import\s+https\s+from\s+['"]https['"]/,
+        /import\s+http\s+from\s+['"]http['"]/,
+        /import\s+.*from\s+['"]node:https['"]/,
+        /import\s+.*from\s+['"]node:http['"]/,
         /require\(['"]https['"]\)/,
         /require\(['"]http['"]\)/,
+        /require\(['"]node:https['"]\)/,
+        /require\(['"]node:http['"]\)/,
         /import.*node-fetch/,
         /import.*axios/,
         /import.*got\b/,
@@ -59,7 +71,6 @@ const RULES = [
     severity: 'CRITICAL',
     check(src) {
       const violations = [];
-      // Look for console.log/error/warn with credential variable names
       const secretVars = /console\.(log|error|warn|info)\s*\(.*?(secret|key|token|password|auth|bearer|api_key)/i;
       if (secretVars.test(src))
         violations.push('Potential secret value passed to console method — use maskSecret()');
@@ -81,7 +92,6 @@ const RULES = [
     description: 'Dynamic imports with variable paths are forbidden',
     severity: 'HIGH',
     check(src) {
-      // import(variable) or require(variable) — static strings are OK
       const dynImport = /import\s*\(\s*[^'"]\s*/;
       const dynRequire = /require\s*\(\s*[^'"]/;
       const violations = [];
@@ -92,18 +102,19 @@ const RULES = [
   },
   {
     id: 'NO_EXTERNAL_NPM',
-    description: 'Providers may only import from @anansikey/core',
+    description: 'Providers may only import from @anansikey/core, relative paths, or node: built-ins',
     severity: 'HIGH',
     check(src) {
-      // Find all import statements
       const imports = [...src.matchAll(/^import\s+.*?from\s+['"]([^'"]+)['"]/gm)]
         .map(m => m[1]);
 
       const violations = [];
       for (const imp of imports) {
-        // Allow: relative paths, @anansikey/core
         if (imp.startsWith('.') || imp.startsWith('@anansikey/core')) continue;
-        violations.push(`External import not allowed: '${imp}' — providers may only use @anansikey/core`);
+        // Node.js built-ins must use the explicit 'node:' prefix — see
+        // rule description above for why this is the safe allowlist form.
+        if (imp.startsWith('node:')) continue;
+        violations.push(`External import not allowed: '${imp}' — use '.', '@anansikey/core', or 'node:' built-ins`);
       }
       return violations;
     }
@@ -113,7 +124,6 @@ const RULES = [
     description: 'Provider parse() must handle _malformed flag from adapter',
     severity: 'MEDIUM',
     check(src) {
-      // Heuristic: if parse() exists and doesn't check _malformed
       if (src.includes('parse(') && !src.includes('_malformed'))
         return ['parse() should handle body._malformed flag (chaos: malformed response protection)'];
       return [];
@@ -124,8 +134,12 @@ const RULES = [
     description: 'Provider must use export default with required fields',
     severity: 'HIGH',
     check(src) {
-      if (!src.includes('export default'))
-        return ['Provider must use export default { id, name, format, request, parse }'];
+      const hasDefault = src.includes('export default');
+      const hasNamedExports = /^export const \w+ = \{/m.test(src);
+      // Multi-provider files (email.js, storage.js, cloud.js, auth.js) use
+      // named exports + a default object aggregating them — both are valid.
+      if (!hasDefault && !hasNamedExports)
+        return ['Provider must use export default { id, name, format, request, parse } or named const exports'];
 
       const required = ['id:', 'name:', 'format(', 'request(', 'parse('];
       return required
@@ -139,11 +153,10 @@ const RULES = [
 
 async function scanFile(filepath) {
   const src = fs.readFileSync(filepath, 'utf8');
-  const filename = path.basename(filepath);
   const violations = [];
 
   for (const rule of RULES) {
-    const found = rule.check(src, filename);
+    const found = rule.check(src);
     for (const msg of found) {
       violations.push({ rule: rule.id, severity: rule.severity, msg });
     }
@@ -198,7 +211,6 @@ async function main() {
     process.exit(0);
   } else {
     console.log(R + '  ✗ ' + totalViolations + ' violation(s) — ' + totalCritical + ' critical\n' + X);
-    // Critical violations block merge
     process.exit(totalCritical > 0 ? 1 : 0);
   }
 }

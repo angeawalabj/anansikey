@@ -1,7 +1,7 @@
 /**
  * Anansikey GitHub Action — entrypoint.js
  *
- * Runs as node20 directly — no Docker, no shell wrapper.
+ * Runs as node24 directly — no Docker, no shell wrapper.
  * Imports @anansikey/core (same registry as CLI and VS Code).
  * Zero duplication — one provider definition serves all runtimes.
  *
@@ -39,21 +39,26 @@ try {
 }
 
 // ── Import @anansikey/core ────────────────────────────────────
+// Resolved via an explicit relative path to index.node.js (the full
+// 25-provider registry, including the 4 that need node:crypto) rather
+// than the bare '@anansikey/core' specifier: Node's package "exports"
+// conditions only apply to package-name resolution, not relative-path
+// imports across the monorepo, so this must name the node-only entry
+// point directly to get the same provider set the CLI exposes.
 const CORE_PATH = path.resolve(__dir, '../core');
 const {
-  PROVIDERS, detectServices, runProvider,
+  detectServices, runProvider,
   ResultType, ExitCode, exitCodeFor,
-} = await import(path.join(CORE_PATH, 'index.js'));
+} = await import(path.join(CORE_PATH, 'index.node.js'));
 
 const { request: nodeRequest } = await import(path.join(CORE_PATH, 'adapters/node.js'));
-const { maskSecret }           = await import(path.join(CORE_PATH, 'results/mask.js'));
 
 // ── Secret manager fetchers ───────────────────────────────────
 const SM_PATH = path.resolve(__dir, '../cli/secret-managers');
 const { resolveSecretSource } = await import(path.join(SM_PATH, 'index.js'));
 
 // ── Helpers ───────────────────────────────────────────────────
-function parseEnvFile(filePath) {
+async function parseEnvFile(filePath) {
   const { readFileSync, existsSync } = await import('fs');
   if (!existsSync(filePath)) {
     core.setFailed(`env_file not found: ${filePath}`);
@@ -139,7 +144,7 @@ async function run() {
     core.info(`Source: ${secretSource.sourceLabel}`);
   } else {
     core.info(`Source: ${envFile}`);
-    vars = parseEnvFile(envFile);
+    vars = await parseEnvFile(envFile);
   }
 
   // Detect services
@@ -170,9 +175,6 @@ async function run() {
     const result = await runProvider(provider, creds, nodeRequest);
     results.push({ provider: provider.id, name: provider.name, ...result });
 
-    // Log result in GitHub Actions format
-    const maskedKey = maskSecret(Object.values(creds)[0] ?? '');
-
     if (result.type === ResultType.SUCCESS) {
       core.info(`  ✓ ${provider.name}: ${result.msg}`);
     } else if (result.type === ResultType.WARN) {
@@ -181,9 +183,11 @@ async function run() {
       core.error(`${provider.name}: [${result.code}] ${result.msg}${result.fix ? ` — ${result.fix.split('\n')[0]}` : ''}`);
     }
 
-    // Determine worst non-warning exit code
-  // WARNING (5) is non-blocking — a separate fail_on_warning input handles it
-  if (code !== ExitCode.WARNING && code > worstExit) worstExit = code;
+    // `code` must be computed before it's used — determine worst
+    // non-warning exit code. WARNING (5) is non-blocking, a separate
+    // fail_on_warning input handles it below.
+    const code = exitCodeFor(result);
+    if (code !== ExitCode.WARNING && code > worstExit) worstExit = code;
 
     // [P7] Rate respect between tests
     if (i < detected.length - 1) await sleep(500);

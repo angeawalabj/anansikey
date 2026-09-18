@@ -145,7 +145,10 @@ export function netErr(e) {
 // Used by adapters when the response body can't be parsed.
 // Chaos engineering: providers should never crash on bad responses.
 export function malformed(status, raw) {
+  const snippet = typeof raw === 'string' && raw.length > 0
+    ? ` — response started with: ${raw.slice(0, 120).replace(/\s+/g, ' ')}${raw.length > 120 ? '…' : ''}`
+    : '';
   return fail(ErrorCode.MALFORMED_RESPONSE,
     `API returned unparseable response (HTTP ${status})`,
-    'The provider API may have changed — open an issue at github.com/anansikey/anansikey');
+    `The provider API may have changed — open an issue at github.com/anansikey/anansikey${snippet}`);
 }

@@ -62,7 +62,10 @@ If `anansikey.dev` is compromised, the web app could be replaced with one that e
 
 **Defenses:**
 - Web app is a single static HTML file — easy to audit, no server-side logic
-- Users can run it locally: `open packages/web/index.html`
+- It is reproducible from source: `pnpm run build:web` regenerates
+  `packages/web/dist/index.html` from `packages/core`, so a hosted file can be
+  diffed against a locally built one
+- Users can run it locally: `pnpm run build:web && open packages/web/dist/index.html`
 - Users can verify P1 in DevTools → Network tab before trusting the hosted version
 
 ### 4. Credentials in Memory

@@ -14,11 +14,14 @@
 
 ## For new providers — checklist
 
-- [ ] `scripts/sast.js` passes — `node scripts/sast.js`
-- [ ] Chaos suite passes — `node packages/chaos/runner.js`
-- [ ] Provider added to `packages/core/index.js`
+- [ ] Lint passes — `pnpm run lint`
+- [ ] SAST passes — `pnpm run sast`
+- [ ] Unit tests + chaos suite pass — `pnpm run test`
+- [ ] Provider registered in `packages/core/index.js` (browser-safe) **or**
+      `packages/core/index.node.js` if it needs `node:crypto`
 - [ ] Test creds added to `packages/chaos/runner.js` → `VALID_CREDS`
-- [ ] Provider added to `packages/web/index.html` PROVIDERS array
+- [ ] Web app still builds clean — `pnpm run build:web && pnpm run verify:web-bundle-purity`
+      (no manual step needed: the web app bundles the core registry, providers are never duplicated there)
 - [ ] `WIKI-Supported-Services.md` updated
 
 ### Security checklist

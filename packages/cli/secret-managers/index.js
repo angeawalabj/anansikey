@@ -1,5 +1,5 @@
 /**
- * @anansikey/cli — Secret manager dispatcher
+ * anansikey (CLI) — Secret manager dispatcher
  *
  * Detects --from-* flags and routes to the correct fetcher.
  * Returns { vars: {KEY: VALUE}, sourceLabel: string } or null.
